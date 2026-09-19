@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+/*
+  Palette — PRD §9.1.
+  Both brand colours are mid-tone: white text fails WCAG AA on each
+  (#FFF on sage ≈ 2.3:1, on blush ≈ 1.9:1). Text is therefore always `ink`
+  on coloured surfaces, never white. ink-on-sage ≈ 5.9:1, ink-on-blush ≈ 7.5:1.
+*/
+@theme {
+  --color-sage: #a6aca1;
+  --color-sage-tint: #e8eae5;
+  --color-sage-deep: #7c8377;
+  --color-blush: #e1b4a5;
+  --color-blush-tint: #f5e3dc;
+  --color-blush-deep: #c08a77;
+  --color-ink: #2e322d;
+  --color-ink-muted: #5c6158;
+  --color-cream: #faf8f5;
+  --color-alert: #8c3a2b;
+  --color-alert-tint: #f6e4e0;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+:root {
+  color-scheme: light;
+}
+
+html, body {
+  background: var(--color-cream);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  font-size: 16px;
+  /* Room for the fixed bottom tab bar on phones. */
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  body { padding-bottom: 0; }
+}
+
+* { box-sizing: border-box; }
+
+/* Removes the 300ms double-tap delay and the default blue flash on tap. */
+a, button, label, input, select, [role="button"] {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Numbers that change — cube counts, portions, dates — should not jitter. */
+.tabular-nums { font-variant-numeric: tabular-nums; }
+
+h1, h2, h3 { text-wrap: balance; }
+p { text-wrap: pretty; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+button { font: inherit; color: inherit; }
+
+/* Focus ring that reads on both brand surfaces. */
+:focus-visible {
+  outline: 2px solid var(--color-ink);
+  outline-offset: 2px;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { padding-bottom: 0; background: #fff; }
+}
