@@ -12,7 +12,7 @@ import type { Plan, PlanSettings } from "@/lib/types";
  */
 
 const KEY = "jm-food:v1";
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 interface Stored {
   version: number;
@@ -22,10 +22,22 @@ interface Stored {
   allergensSeen: string[];
   /** Meals marked as eaten, as "dayIndex:slot". */
   eaten: string[];
+  /**
+   * Meals that never happened, as "dayIndex:slot". Babies refuse things and
+   * plans get interrupted; without this the only way past a skipped day was to
+   * claim they ate it, which also filed a false allergen exposure.
+   */
+  skipped: string[];
   /** Shopping lines ticked off, as "shopIndex:item". */
   ticked: string[];
   /** Recipe ids saved to the cook-from list. */
   saved: string[];
+  /**
+   * Recipes never to plan again. The mirror of saved, and the more valuable
+   * half: knowing what they refused is what makes week seven quicker than
+   * week one. Kept out of plans entirely, never deleted with a plan.
+   */
+  blocked: string[];
   /** The parent's own note against a recipe, keyed by recipe id. */
   notes: Record<string, string>;
   /** Prep-day recipes already cooked, as "sessionIndex:recipeId". */
@@ -46,8 +58,10 @@ const EMPTY: Stored = {
   settings: null,
   allergensSeen: [],
   eaten: [],
+  skipped: [],
   ticked: [],
   saved: [],
+  blocked: [],
   notes: {},
   cooked: [],
   shop: { listIndex: 0, hideStaples: true },
@@ -99,6 +113,9 @@ function migrate(parsed: Record<string, unknown>): Stored {
   // v2 added saved recipes and notes, v3 prep ticks and shop position, v4 the
   // shopping substitutions. All additive, so EMPTY's defaults are the whole
   // migration and nothing a parent has recorded is ever thrown away.
+  if (version === 5) {
+    return { ...EMPTY, ...(parsed as unknown as Stored), version: SCHEMA_VERSION };
+  }
   if (version >= 2 && version <= 4) {
     const carried = { ...EMPTY, ...(parsed as unknown as Stored), version: SCHEMA_VERSION };
     return {
@@ -151,8 +168,10 @@ export function load(): Stored {
       ...migrated,
       allergensSeen: Array.isArray(migrated.allergensSeen) ? migrated.allergensSeen : [],
       eaten: Array.isArray(migrated.eaten) ? migrated.eaten : [],
+      skipped: Array.isArray(migrated.skipped) ? migrated.skipped : [],
       ticked: Array.isArray(migrated.ticked) ? migrated.ticked : [],
       saved: Array.isArray(migrated.saved) ? migrated.saved : [],
+      blocked: Array.isArray(migrated.blocked) ? migrated.blocked : [],
       cooked: Array.isArray(migrated.cooked) ? migrated.cooked : [],
       shop: migrated.shop && typeof migrated.shop === "object" ? migrated.shop : EMPTY.shop,
       swaps:
@@ -190,6 +209,7 @@ export function clearPlan(): void {
   save({
     ...EMPTY,
     saved: kept.saved,
+    blocked: kept.blocked,
     notes: kept.notes,
     settings: kept.settings,
     allergensSeen: kept.allergensSeen,

@@ -18,7 +18,7 @@ export function RecipeDetail({
   /** Show the quantities already multiplied for a batch cook. */
   scale?: number;
 }) {
-  const { saved, toggleSaved, notes, setNote } = usePlan();
+  const { saved, toggleSaved, notes, setNote, blocked, toggleBlocked } = usePlan();
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const restoreTo = useRef<HTMLElement | null>(null);
@@ -117,6 +117,21 @@ export function RecipeDetail({
           />
           <CopyButton text={recipeToText(recipe, note, scale)} label="Copy to notes" />
           <ShareButton text={recipeToText(recipe, note, scale)} title={recipe.title} />
+        </div>
+
+        <div className="no-print mb-4">
+          <button
+            type="button"
+            onClick={() => toggleBlocked(recipe.id)}
+            aria-pressed={blocked.has(recipe.id)}
+            className={`min-h-[2.75rem] text-sm font-medium underline underline-offset-2 ${
+              blocked.has(recipe.id) ? "text-alert" : "text-ink-muted hover:text-ink"
+            }`}
+          >
+            {blocked.has(recipe.id)
+              ? "Ruled out — put it back in the rotation"
+              : "Not again — never plan this one"}
+          </button>
         </div>
 
         {recipe.blurb && <p className="mb-3 text-sm italic text-ink-muted">{recipe.blurb}</p>}

@@ -8,17 +8,18 @@ import { savedListToText } from "@/lib/text/export";
 import { RecipeDetail } from "@/components/RecipeDetail";
 import {
   AllergenBadges, Button, Card, Chip, CopyButton, EmptyState, RecipeMeta,
-  SaveButton, SearchInput, SectionHeading,
+  SaveButton, SearchInput, SectionHeading, ShareButton,
 } from "@/components/ui";
 import { usePlan } from "@/components/PlanProvider";
 import { LegumeBar } from "@/components/LegumeBanner";
 import { ALLERGEN_LABELS, type Allergen, type Recipe } from "@/lib/types";
 
-type Filter = "all" | "saved" | "breakfast" | "lunch" | "quick" | "iron" | "noCook";
+type Filter = "all" | "saved" | "blocked" | "breakfast" | "lunch" | "quick" | "iron" | "noCook";
 
 const FILTER_LABELS: Record<Filter, string> = {
   all: "All",
   saved: "Saved",
+  blocked: "Not again",
   breakfast: "Breakfast",
   lunch: "Lunch",
   quick: `Under ${QUICK_MAX_MINUTES} min`,
@@ -26,11 +27,17 @@ const FILTER_LABELS: Record<Filter, string> = {
   noCook: "No cooking",
 };
 
-const FILTERS: Filter[] = ["all", "saved", "breakfast", "lunch", "quick", "iron", "noCook"];
+const FILTERS: Filter[] = ["all", "saved", "blocked", "breakfast", "lunch", "quick", "iron", "noCook"];
 
-function matchesFilter(r: Recipe, filter: Filter, saved: Set<string>): boolean {
+function matchesFilter(
+  r: Recipe,
+  filter: Filter,
+  saved: Set<string>,
+  blocked: Set<string>
+): boolean {
   switch (filter) {
     case "saved": return saved.has(r.id);
+    case "blocked": return blocked.has(r.id);
     case "breakfast": return r.slots.includes("breakfast");
     case "lunch": return r.slots.includes("lunch");
     case "quick": return r.activeMinutes <= QUICK_MAX_MINUTES;
@@ -56,10 +63,24 @@ function asFilter(value: string | null): Filter {
   return FILTERS.includes(value as Filter) ? (value as Filter) : "all";
 }
 
+const FILTER_KEY = "jm-food:recipes-filter";
+
+function readLastFilter(): string | null {
+  try {
+    return window.localStorage.getItem(FILTER_KEY);
+  } catch {
+    return null;
+  }
+}
+
 function RecipeLibrary() {
-  const { allergensSeen, settings, saved, toggleSaved, notes } = usePlan();
+  const { allergensSeen, settings, saved, toggleSaved, notes, blocked, toggleBlocked } = usePlan();
   const params = useSearchParams();
-  const [filter, setFilter] = useState<Filter>(() => asFilter(params.get("show")));
+  // Six weeks in, "Saved" is the view you want; re-picking it every visit is a
+  // tax on the people who use the app most.
+  const [filter, setFilter] = useState<Filter>(() =>
+    asFilter(params.get("show") ?? readLastFilter())
+  );
   const [allergen, setAllergen] = useState<string>(() => params.get("allergen") ?? "any");
   const [query, setQuery] = useState(() => params.get("q") ?? "");
   const [open, setOpen] = useState<Recipe | null>(null);
@@ -77,6 +98,12 @@ function RecipeLibrary() {
     if (allergen !== "any") next.set("allergen", allergen);
     const qs = next.toString();
     window.history.replaceState(null, "", qs ? `?${qs}` : window.location.pathname);
+
+    try {
+      window.localStorage.setItem(FILTER_KEY, filter);
+    } catch {
+      // Private window or blocked storage: the filter just will not persist.
+    }
   }, [query, filter, allergen]);
 
   const allergensPresent = useMemo(() => {
@@ -90,7 +117,7 @@ function RecipeLibrary() {
   const shown = useMemo(() => {
     const [rule, value] = allergen.split(":");
     const matched = searchRecipes(library, query).filter((r) => {
-      if (!matchesFilter(r, filter, saved)) return false;
+      if (!matchesFilter(r, filter, saved, blocked)) return false;
       if (rule === "with" && !r.allergens.includes(value as Allergen)) return false;
       if (rule === "without" && r.allergens.includes(value as Allergen)) return false;
       return true;
@@ -144,7 +171,11 @@ function RecipeLibrary() {
               key={f}
               pressed={filter === f}
               onClick={() => setFilter(f)}
-              count={f === "saved" ? saved.size : undefined}
+              count={
+                f === "saved" ? saved.size || undefined
+                : f === "blocked" ? blocked.size || undefined
+                : undefined
+              }
             >
               {FILTER_LABELS[f]}
             </Chip>
@@ -188,10 +219,17 @@ function RecipeLibrary() {
         </p>
         <div className="no-print flex flex-wrap gap-2">
           {filter === "saved" && savedRecipes.length > 0 && (
-            <CopyButton
-              text={savedListToText(shown.length > 0 ? shown : savedRecipes, notes)}
-              label="Copy saved list to notes"
-            />
+            <>
+              <CopyButton
+                text={savedListToText(shown.length > 0 ? shown : savedRecipes, notes)}
+                label="Copy to notes"
+              />
+              <ShareButton
+                text={savedListToText(shown.length > 0 ? shown : savedRecipes, notes)}
+                title="The ones they actually eat"
+                label="Share the list"
+              />
+            </>
           )}
           {filtersActive && (
             <Button variant="ghost" onClick={clearFilters}>
@@ -216,6 +254,18 @@ function RecipeLibrary() {
           title="Nothing saved matches that"
           body="You have saved recipes, but none of them match what you have typed. Clearing the search looks through the whole saved list again."
           action={<Button onClick={() => setQuery("")}>Clear the search</Button>}
+        />
+      )}
+
+      {filter === "blocked" && blocked.size === 0 && (
+        <EmptyState
+          title="Nothing ruled out"
+          body="When the twins refuse something, rule it out here or from its meal card and the planner will stop offering it. It is the fastest way to make next week's plan better than this week's."
+          action={
+            <Button variant="ghost" onClick={() => setFilter("all")}>
+              Browse all recipes
+            </Button>
+          }
         />
       )}
 
@@ -254,6 +304,9 @@ function RecipeLibrary() {
               </h2>
               <SaveButton saved={saved.has(r.id)} onToggle={() => toggleSaved(r.id)} title={r.title} />
             </div>
+            {blocked.has(r.id) && (
+              <p className="mt-1 text-xs font-medium text-alert">Ruled out — never planned</p>
+            )}
             <p className="mt-1 text-xs text-ink-muted">
               {r.slots.join(" · ")} · makes {r.babyPortions} baby portion{r.babyPortions === 1 ? "" : "s"}
             </p>
@@ -261,6 +314,15 @@ function RecipeLibrary() {
             <div className="mt-2">
               <AllergenBadges allergens={r.allergens} seen={allergensSeen} showNew />
             </div>
+            {blocked.has(r.id) && (
+              <button
+                type="button"
+                onClick={() => toggleBlocked(r.id)}
+                className="mt-2 min-h-[2.75rem] text-left text-xs font-medium text-alert underline underline-offset-2"
+              >
+                Put it back in the rotation
+              </button>
+            )}
             {notes[r.id] && (
               <p className="mt-2 line-clamp-2 rounded-lg bg-sage-tint px-3 py-2 text-xs text-ink">
                 <span className="font-medium">Your note: </span>

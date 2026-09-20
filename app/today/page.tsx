@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePlan } from "@/components/PlanProvider";
 import { MealCard } from "@/components/MealCard";
-import { Button, SectionHeading, Card, EmptyState } from "@/components/ui";
+import { Button, SectionHeading, Card, EmptyState, ShareButton } from "@/components/ui";
+import { dayToText } from "@/lib/text/export";
 import { LegumeBar, StaleBar } from "@/components/LegumeBanner";
 import { getRecipe } from "@/lib/data/recipes";
 import { ALLERGEN_LABELS } from "@/lib/types";
@@ -12,7 +13,10 @@ import { planDays } from "@/lib/planner/coverage";
 
 
 export default function TodayPage() {
-  const { plan, ready, swapMeal, toggleLock, allergensSeen, eaten, toggleEaten, todayIndex } = usePlan();
+  const {
+    plan, ready, swapMeal, toggleLock, allergensSeen, eaten, toggleEaten,
+    skipped, toggleSkipped, todayIndex, planFinished, notes,
+  } = usePlan();
   const [dayIndex, setDayIndex] = useState<number | null>(null);
 
   // Start on the real today, not day one — and only once the plan has loaded.
@@ -30,11 +34,14 @@ export default function TodayPage() {
     );
   }
 
-  const day = dayIndex ?? 0;
+  const day = dayIndex ?? todayIndex ?? 0;
   const totalDays = planDays(plan.settings);
   const meals = plan.meals.filter((m) => m.dayIndex === day);
   const tomorrow = plan.meals.filter((m) => m.dayIndex === day + 1 && m.state === "defrost");
   const prepSession = plan.prepSessions.find((sn) => sn.dayIndex === day);
+  const viewedDayDone =
+    meals.length > 0 &&
+    meals.every((m) => eaten.has(`${m.dayIndex}:${m.slot}`) || skipped.has(`${m.dayIndex}:${m.slot}`));
 
   const isToday = todayIndex === day;
 
@@ -43,15 +50,38 @@ export default function TodayPage() {
       <LegumeBar />
       <StaleBar />
 
-      <SectionHeading
-        sub={`Day ${day + 1} of ${totalDays}${
-          isToday ? " — the next one with a meal to eat" : ""
-        }`}
-      >
-        {isToday ? "Up next" : `Day ${day + 1}`}
-      </SectionHeading>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <SectionHeading
+          sub={`Day ${day + 1} of ${totalDays}${
+            isToday ? " — the next one with a meal to eat" : ""
+          }`}
+        >
+          {isToday ? "Up next" : `Day ${day + 1}`}
+        </SectionHeading>
+      </div>
+
+      {planFinished && (
+        <Card tone="blush" className="mb-5">
+          <h2 className="mb-1 font-semibold text-ink">That is the whole plan eaten</h2>
+          <p className="text-sm text-ink">
+            Every meal is ticked off or skipped. Nothing here goes out of date, so start the next
+            one whenever it suits.
+          </p>
+          <Link
+            href="/"
+            className="mt-3 inline-flex min-h-[2.75rem] items-center rounded-lg bg-blush px-4 py-2.5 text-sm font-medium text-ink hover:bg-blush-deep"
+          >
+            Plan the next few meals
+          </Link>
+        </Card>
+      )}
 
       <div className="no-print mb-5 flex flex-wrap items-center gap-2">
+        <ShareButton
+          text={dayToText(plan, day, getRecipe, notes)}
+          title={`Day ${day + 1}`}
+          label="Send this day"
+        />
         <Button variant="ghost" onClick={() => setDayIndex(Math.max(0, day - 1))} disabled={day === 0}>
           Previous day
         </Button>
@@ -68,6 +98,19 @@ export default function TodayPage() {
           </Button>
         )}
       </div>
+
+      {viewedDayDone && todayIndex !== null && todayIndex > day && (
+        <Card tone="blush" className="mb-5">
+          <p className="text-sm text-ink">
+            Day {day + 1} is done. The next meal is on day {todayIndex + 1}.
+          </p>
+          <div className="mt-3">
+            <Button onClick={() => setDayIndex(todayIndex)}>
+              Go to day {todayIndex + 1}
+            </Button>
+          </div>
+        </Card>
+      )}
 
       {prepSession && (
         <Card tone="sage" className="mb-5">
@@ -113,8 +156,10 @@ export default function TodayPage() {
         {meals.map((m) => {
           const key = `${m.dayIndex}:${m.slot}`;
           return (
-            <div key={key} className="space-y-2">
+            <div key={key} className="rounded-lg border border-sage-tint bg-white">
               <MealCard
+                bare
+                showRuleOut
                 meal={m}
                 plan={plan}
                 allergensSeen={allergensSeen}
@@ -122,23 +167,43 @@ export default function TodayPage() {
                 onToggleLock={toggleLock}
                 showSlot={plan.settings.slots.length > 1}
               />
-              <label className="flex min-h-[2.75rem] cursor-pointer items-center gap-3 px-1 text-sm text-ink-muted">
-                <input
-                  type="checkbox"
-                  checked={eaten.has(key)}
-                  onChange={() => toggleEaten(m.dayIndex, m.slot)}
-                  className="h-6 w-6 shrink-0 accent-blush-deep"
-                />
-                <span aria-live="polite">
-                  {eaten.has(key)
-                    ? getRecipe(m.recipeId).allergens.length > 0
-                      ? `Eaten — ${getRecipe(m.recipeId)
-                          .allergens.map((a) => ALLERGEN_LABELS[a].toLowerCase())
-                          .join(", ")} recorded`
-                      : "Eaten — recorded"
-                    : "Eaten — records any new allergens"}
-                </span>
-              </label>
+
+              {/* Attached to the meal, because that is what they are about. */}
+              <div className="border-t border-sage-tint px-3 py-1">
+                <label className="flex min-h-[2.75rem] cursor-pointer items-center gap-3 text-sm text-ink-muted">
+                  <input
+                    type="checkbox"
+                    checked={eaten.has(key)}
+                    onChange={() => toggleEaten(m.dayIndex, m.slot)}
+                    className="h-6 w-6 shrink-0 accent-blush-deep"
+                  />
+                  <span aria-live="polite">
+                    {eaten.has(key)
+                      ? getRecipe(m.recipeId).allergens.length > 0
+                        ? `Eaten — ${getRecipe(m.recipeId)
+                            .allergens.map((a) => ALLERGEN_LABELS[a].toLowerCase())
+                            .join(", ")} recorded`
+                        : "Eaten — recorded"
+                      : "Eaten — records any new allergens"}
+                  </span>
+                </label>
+
+                {/*
+                  Babies refuse things and days get away from you. Without this
+                  the only way to move the plan on was to tick "eaten" on food
+                  they never touched — which also files a false first exposure.
+                */}
+                <button
+                  type="button"
+                  onClick={() => toggleSkipped(m.dayIndex, m.slot)}
+                  aria-pressed={skipped.has(key)}
+                  className={`min-h-[2.75rem] text-sm font-medium underline underline-offset-2 ${
+                    skipped.has(key) ? "text-alert" : "text-ink-muted hover:text-ink"
+                  }`}
+                >
+                  {skipped.has(key) ? "Skipped — nothing recorded" : "This one did not happen"}
+                </button>
+              </div>
             </div>
           );
         })}

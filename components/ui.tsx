@@ -52,13 +52,16 @@ export function StateLine({
   /** Portions, for food frozen flat rather than in cubes. */
   portions?: number;
 }) {
+  // "tonight" is only unambiguous on the day you are standing in. On the plan
+  // grid the same words sit under a day heading and read as "defrost on that
+  // evening" — a day late, with nothing to serve at lunch.
   const label =
     state === "defrost"
       ? cubes
-        ? `Defrost ${cubes} cubes tonight`
+        ? `Take ${cubes} cubes out the night before`
         : portions
-          ? `Take ${portions} portion${portions === 1 ? "" : "s"} out tonight`
-          : "Take out of the freezer"
+          ? `Take ${portions} portion${portions === 1 ? "" : "s"} out the night before`
+          : "Take out of the freezer the night before"
       : STATE_LABEL[state];
   const emphatic = state === "defrost" || state === "cookToday";
   return (

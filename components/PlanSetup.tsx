@@ -50,7 +50,10 @@ export function PlanSetup({
     // Planning nothing is not a useful state.
     if (next.length === 0) return;
     const slots = (["breakfast", "lunch"] as MealSlot[]).filter((s) => next.includes(s));
-    updateSettings({ slots, meals: clampMeals(settings.meals, { slots }) });
+    // Keep the number of DAYS, not the number of meals: someone who asked for
+    // four lunches and then adds breakfast wants four of each, not two days.
+    const days = planDays(settings);
+    updateSettings({ slots, meals: clampMeals(days * slots.length, { slots }) });
   }
 
   return (

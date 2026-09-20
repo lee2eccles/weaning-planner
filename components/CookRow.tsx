@@ -35,7 +35,7 @@ function trayLabel(trays: number[]): string {
 }
 
 export function CookRow({
-  item, cooked, onToggleCooked, cubesPerPortion, swaps = {}, position, wave,
+  item, cooked, onToggleCooked, cubesPerPortion, swaps = {}, position, wave, note,
 }: {
   item: CookItem;
   cooked: boolean;
@@ -47,6 +47,8 @@ export function CookRow({
   position?: number;
   /** Which freezing wave this batch fills, and which trays. */
   wave?: WavePlacement;
+  /** What you wrote about this recipe last time you cooked it. */
+  note?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [full, setFull] = useState(false);
@@ -123,12 +125,22 @@ export function CookRow({
           {spare >= 0.5 && (
             <p className="mt-0.5 text-xs text-ink-muted">
               About {spare} spare portion{spare === 1 ? "" : "s"} — the batch does not divide
-              evenly. Serve it today or freeze it with the rest, labelled.
+              evenly.{" "}
+              {wave
+                ? "Freeze it with the rest, in the same labelled bag."
+                : "Keep it in the fridge and serve it within the usual days — it has no bag of its own."}
             </p>
           )}
 
           {r.freezableNote && (
             <p className="mt-0.5 text-xs text-alert">Only the {r.freezableNote} freezes.</p>
+          )}
+
+          {note && (
+            <p className="mt-1.5 rounded-lg bg-sage-tint px-3 py-2 text-xs text-ink">
+              <span className="font-medium">Your note: </span>
+              {note}
+            </p>
           )}
 
           {shopNotes.length > 0 && (

@@ -3,7 +3,8 @@ import { generatePlan } from "@/lib/planner/generate";
 import { buildShoppingLists, shoppingListToText, planToText } from "@/lib/shopping/merge";
 import { getRecipe, ALL_RECIPES } from "@/lib/data/recipes";
 import { cubesPerPortion, scaleIngredients, scaleQuantity, batchLabel, DEFAULT_FREEZER } from "@/lib/planner/portions";
-import { prepSessionToText, recipeToText } from "@/lib/text/export";
+import { dayToText, prepSessionToText, recipeToText } from "@/lib/text/export";
+import { ALLERGEN_LABELS } from "@/lib/types";
 import { searchRecipes } from "@/lib/data/search";
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -239,6 +240,129 @@ describe("search after the sentence-length queries testers actually typed", () =
   });
 
   it("still returns nothing when nothing matches at all", () => {
+    expect(searchRecipes(ALL_RECIPES, "kangaroo")).toEqual([]);
+  });
+});
+
+/**
+ * Second round of parent testing: small plans, the handover to the other
+ * parent, and whether week seven is quicker than week one.
+ */
+describe("what the second round of testers found", () => {
+  it("sizes a four-lunch plan like four lunches, not like a fortnight", () => {
+    let recipes = 0;
+    let items = 0;
+    for (let seed = 0; seed < 10; seed++) {
+      const plan = generatePlan({ settings: { meals: 4 }, restarts: 20, seed });
+      recipes += new Set(plan.meals.map((m) => m.recipeId)).size;
+      items += buildShoppingLists(plan)[0].lines.length;
+    }
+    // Was 3 recipes and 16 shopping items for 8 portions, because variety was
+    // judged on a fixed 7-day scale whatever the plan's length.
+    expect(recipes / 10).toBeLessThanOrEqual(2.6);
+    expect(items / 10).toBeLessThanOrEqual(13);
+  });
+
+  it("pulls a saved recipe into the plan rather than pushing it out", () => {
+    const favourite = "quick-mackerel-potato-sweetcorn-smash";
+    let appears = 0;
+    for (let seed = 0; seed < 10; seed++) {
+      const plan = generatePlan({
+        settings: { meals: 14 }, restarts: 20, seed, preferred: [favourite],
+      });
+      if (plan.meals.some((m) => m.recipeId === favourite)) appears++;
+    }
+    // Saving it used to take it from 6 plans in 10 to none at all.
+    expect(appears).toBe(10);
+  });
+
+  it("never plans a recipe that has been ruled out", () => {
+    const banned = "app-mushroom-spinach-parmesan-risotto";
+    for (let seed = 0; seed < 10; seed++) {
+      const plan = generatePlan({ settings: { meals: 14 }, restarts: 10, seed, blocked: [banned] });
+      expect(plan.meals.some((m) => m.recipeId === banned), `seed ${seed}`).toBe(false);
+    }
+  });
+
+  it("drops a locked meal that falls outside a shorter plan", () => {
+    // It used to be re-applied at its old day index: invisible in the grid,
+    // but still shopped for and still cooked, at about 50% extra food.
+    const fortnight = generatePlan({ settings: { meals: 14 }, restarts: 5, seed: 1 });
+    const locked = [{ ...fortnight.meals[11], locked: true }];
+    const short = generatePlan({ settings: { meals: 4 }, restarts: 5, seed: 1, locked });
+
+    expect(short.meals).toHaveLength(4);
+    expect(Math.max(...short.meals.map((m) => m.dayIndex))).toBe(3);
+    for (const session of short.prepSessions) {
+      expect(Math.max(...session.coversDayIndices)).toBeLessThan(4);
+    }
+  });
+
+  it("gives every defrost instruction a number in the shared plan", () => {
+    const plan = generatePlan({
+      settings: { meals: 28, slots: ["breakfast", "lunch"] }, restarts: 20, seed: 3,
+    });
+    const text = planToText(plan);
+    // "defrost  cubes the night before" — the blank was the one instruction
+    // the receiving parent most needed.
+    expect(text).not.toMatch(/take\s{2,}/);
+    expect(text).not.toMatch(/\s{2,}(cubes|portions)/);
+    for (const line of text.split("\n").filter((l) => l.includes("out the night before"))) {
+      expect(line, line).toMatch(/take \d+ (cubes|portions?) out the night before/);
+    }
+  });
+
+  it("says where the plan has got to when it is shared", () => {
+    const plan = generatePlan({ settings: { meals: 7 }, restarts: 5, seed: 2 });
+    const done = new Set(plan.meals.filter((m) => m.dayIndex < 2).map((m) => `${m.dayIndex}:${m.slot}`));
+    const text = planToText(plan, { done, currentDay: 2 });
+
+    expect(text).toContain("← you are here");
+    expect(text).toContain("prep day");
+    expect(text.split("\n").filter((l) => l.endsWith("✓")).length).toBe(2);
+  });
+
+  it("carries allergens into the shared plan and the day handover", () => {
+    const plan = generatePlan({ settings: { meals: 7 }, restarts: 5, seed: 2 });
+    const withAllergens = plan.meals.find((m) => getRecipe(m.recipeId).allergens.length > 0)!;
+    const label = ALLERGEN_LABELS[getRecipe(withAllergens.recipeId).allergens[0]].toLowerCase();
+
+    expect(planToText(plan)).toContain(label);
+    expect(dayToText(plan, withAllergens.dayIndex, getRecipe)).toContain(label);
+  });
+
+  it("writes a handover a second parent can act on alone", () => {
+    const plan = generatePlan({ settings: { meals: 14 }, restarts: 10, seed: 6 });
+    const text = dayToText(plan, 2, getRecipe, {});
+
+    expect(text).toContain("Day 3 of 14");
+    expect(text.length).toBeLessThan(700); // readable in a notification
+    const defrostTomorrow = plan.meals.some((m) => m.dayIndex === 3 && m.state === "defrost");
+    if (defrostTomorrow) expect(text).toContain("Take out of the freezer tonight");
+  });
+
+  it("says so when the shopping is finished instead of sending blank lines", () => {
+    const plan = generatePlan({ settings: { meals: 7 }, restarts: 5, seed: 4 });
+    const list = buildShoppingLists(plan)[0];
+    const all = new Set(list.lines.map((l) => `${list.shopIndex}:${l.item}`));
+    expect(shoppingListToText(list, true, all)).toContain("All done");
+  });
+
+  it("names the cupboard staples it leaves off the shared list", () => {
+    const plan = generatePlan({ settings: { meals: 14 }, restarts: 10, seed: 5 });
+    const list = buildShoppingLists(plan)[0];
+    const staple = list.lines.find((l) => l.isPantryStaple);
+    if (!staple) return;
+    const text = shoppingListToText(list, false);
+    expect(text).toContain("check before you go");
+    expect(text).toContain(staple.item);
+  });
+
+  it("finds a recipe through a single typo", () => {
+    for (const typo of ["mackrel", "makerel", "mackeral"]) {
+      const results = searchRecipes(ALL_RECIPES, typo);
+      expect(results[0]?.title, typo).toContain("Mackerel");
+    }
     expect(searchRecipes(ALL_RECIPES, "kangaroo")).toEqual([]);
   });
 });

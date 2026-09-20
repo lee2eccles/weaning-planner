@@ -51,6 +51,8 @@ describe("storage migration", () => {
     expect(out.saved).toEqual([]);
     expect(out.notes).toEqual({});
     expect(out.swaps).toEqual({});
+    expect(out.skipped).toEqual([]);
+    expect(out.blocked).toEqual([]);
   });
 
   it("passes a current blob through untouched", () => {
@@ -60,8 +62,10 @@ describe("storage migration", () => {
       settings: null,
       allergensSeen: [],
       eaten: [],
+      skipped: ["3:lunch"],
       ticked: [],
       saved: ["quick-sardine-tomato-toast"],
+      blocked: ["app-mushroom-spinach-parmesan-risotto"],
       notes: { "quick-sardine-tomato-toast": "good" },
       cooked: ["0:quick-sardine-tomato-toast"],
       shop: { listIndex: 1, hideStaples: false },
@@ -90,6 +94,8 @@ describe("storage migration", () => {
     expect(out.saved).toEqual(["quick-sardine-tomato-toast"]);
     // New in v4.
     expect(out.swaps).toEqual({});
+    expect(out.skipped).toEqual([]);
+    expect(out.blocked).toEqual([]);
   });
 
   it("carries a v2 blob forward, keeping the saved list and notes", () => {

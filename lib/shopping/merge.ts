@@ -1,5 +1,5 @@
 import type { Aisle, Plan, PlannedMeal, Unit } from "@/lib/types";
-import { AISLE_LABELS } from "@/lib/types";
+import { AISLE_LABELS, ALLERGEN_LABELS } from "@/lib/types";
 import { getRecipe } from "@/lib/data/recipes";
 import { INGREDIENTS, PANTRY_STAPLES, displayName, meta } from "@/lib/data/ingredients";
 import { chooseBatchMultiplier } from "@/lib/planner/portions";
@@ -312,24 +312,43 @@ export function shoppingListToText(
     if (swap) body.push(`    (${swap})`);
   }
 
-  const staples = list.lines.filter((l) => l.isPantryStaple).length;
+  const stapleLines = list.lines.filter((l) => l.isPantryStaple);
   const notes: string[] = [];
   if (gotCount > 0) notes.push(`(${gotCount} already in the trolley, not listed)`);
-  if (!includeStaples && staples > 0) {
-    notes.push(`(${staples} cupboard staple${staples === 1 ? "" : "s"} not listed — check you have them)`);
+  if (!includeStaples && stapleLines.length > 0) {
+    // Naming them beats counting them: the person reading this is not standing
+    // in your kitchen and cannot check a cupboard they cannot see.
+    notes.push(
+      `(Cupboard staples, not listed — check before you go: ${stapleLines
+        .map((l) => displayName(l.item))
+        .join(", ")})`
+    );
+  }
+
+  if (lines.length === 0) {
+    return `${header}\n\nAll done — nothing left on this list.${
+      notes.length ? `\n\n${notes.join("\n")}` : ""
+    }\n`;
   }
 
   return `${header}\n${body.join("\n")}${notes.length ? `\n\n${notes.join("\n")}` : ""}\n`;
 }
 
-export function planToText(plan: Plan): string {
+export function planToText(
+  plan: Plan,
+  progress: { done?: Set<string>; currentDay?: number | null } = {}
+): string {
   const out: string[] = [`Meal plan — ${coverageSummary(plan.settings)}`, ""];
   const totalDays = planDays(plan.settings);
+  const prepDays = new Set(plan.prepSessions.map((p) => p.dayIndex));
 
   for (let d = 0; d < totalDays; d++) {
     // Day numbers, not weekdays: a plan is a sequence of meals, and it starts
-    // whenever you start it.
-    const label = `Day ${d + 1}`;
+    // whenever you start it. The marker matters more than any date would: the
+    // parent reading this on their own phone needs to know where we have got to.
+    const here = progress.currentDay === d ? "  ← you are here" : "";
+    const prep = prepDays.has(d) ? " · prep day" : "";
+    const label = `Day ${d + 1}${prep}${here}`;
     const dayMeals = plan.meals.filter((m) => m.dayIndex === d);
     if (dayMeals.length === 0) continue;
     out.push(label);
@@ -339,13 +358,23 @@ export function planToText(plan: Plan): string {
       const r = getRecipe(meal.recipeId);
       const state =
         meal.state === "defrost"
-          ? `defrost ${meal.cubesToDefrost ?? ""} cubes the night before`.trim()
+          ? meal.cubesToDefrost
+            ? `take ${meal.cubesToDefrost} cubes out the night before`
+            : `take ${meal.portionsToDefrost ?? 1} portion${
+                (meal.portionsToDefrost ?? 1) === 1 ? "" : "s"
+              } out the night before`
           : meal.state === "cookToday"
             ? "cook today"
             : meal.state === "fromFridge"
               ? "from the fridge"
               : "make fresh";
-      out.push(`  ${slot}: ${r.title} — ${state}`);
+
+      // The person receiving this is the one putting food in a mouth.
+      const allergens = r.allergens.length
+        ? ` (${r.allergens.map((a) => ALLERGEN_LABELS[a].toLowerCase()).join(", ")})`
+        : "";
+      const eaten = progress.done?.has(`${meal.dayIndex}:${meal.slot}`) ? " ✓" : "";
+      out.push(`  ${slot}: ${r.title}${allergens} — ${state}${eaten}`);
     }
     out.push("");
   }

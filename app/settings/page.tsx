@@ -159,7 +159,8 @@ export default function SettingsPage() {
         <p className="mb-3 text-sm text-ink-muted">
           Everything is stored in this browser only — the plan, your ticks, your saved recipes and
           your notes. None of it appears on another phone, and clearing site data loses it. Use the
-          Copy buttons on the Plan, Shop, Prep and Recipes tabs to get things out.
+          Share buttons on the Plan, Today, Shop, Prep and Recipes tabs to send things to the
+          other parent, or to yourself.
         </p>
         {confirmClear === "plan" && (
           <div className="rounded-lg border border-alert/40 bg-alert-tint p-3">

@@ -14,6 +14,11 @@ interface PlanContextValue {
   generating: boolean;
   allergensSeen: Set<string>;
   eaten: Set<string>;
+  /** Meals that never happened. Counts as done without recording an allergen. */
+  skipped: Set<string>;
+  toggleSkipped: (dayIndex: number, slot: MealSlot) => void;
+  /** Every meal is eaten or skipped. */
+  planFinished: boolean;
   regenerate: (settings?: Partial<PlanSettings>) => void;
   updateSettings: (patch: Partial<PlanSettings>) => void;
   swapMeal: (dayIndex: number, slot: MealSlot, recipeId: string) => void;
@@ -28,6 +33,9 @@ interface PlanContextValue {
   /** Recipes saved to the cook-from list. */
   saved: Set<string>;
   toggleSaved: (recipeId: string) => void;
+  /** Recipes ruled out. Never planned, never offered as a swap. */
+  blocked: Set<string>;
+  toggleBlocked: (recipeId: string) => void;
   /** The parent's own notes, keyed by recipe id. */
   notes: Record<string, string>;
   setNote: (recipeId: string, text: string) => void;
@@ -49,8 +57,10 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<PlanSettings>(DEFAULT_SETTINGS);
   const [allergensSeen, setAllergensSeen] = useState<Set<string>>(new Set());
   const [eaten, setEaten] = useState<Set<string>>(new Set());
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [blocked, setBlocked] = useState<Set<string>>(new Set());
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [cooked, setCooked] = useState<Set<string>>(new Set());
   const [shop, setShopState] = useState({ listIndex: 0, hideStaples: true });
@@ -64,8 +74,10 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     if (stored.plan) setPlan(stored.plan);
     setAllergensSeen(new Set(stored.allergensSeen));
     setEaten(new Set(stored.eaten));
+    setSkipped(new Set(stored.skipped ?? []));
     setTicked(new Set(stored.ticked ?? []));
     setSaved(new Set(stored.saved ?? []));
+    setBlocked(new Set(stored.blocked ?? []));
     setNotes(stored.notes ?? {});
     setCooked(new Set(stored.cooked ?? []));
     setShopState(stored.shop ?? { listIndex: 0, hideStaples: true });
@@ -77,9 +89,11 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     plan?: Plan | null;
     settings?: PlanSettings;
     eaten?: Set<string>;
+    skipped?: Set<string>;
     allergensSeen?: Set<string>;
     ticked?: Set<string>;
     saved?: Set<string>;
+    blocked?: Set<string>;
     notes?: Record<string, string>;
     cooked?: Set<string>;
     shop?: { listIndex: number; hideStaples: boolean };
@@ -89,9 +103,11 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       ...(next.plan !== undefined ? { plan: next.plan } : {}),
       ...(next.settings ? { settings: next.settings } : {}),
       ...(next.eaten ? { eaten: [...next.eaten] } : {}),
+      ...(next.skipped ? { skipped: [...next.skipped] } : {}),
       ...(next.allergensSeen ? { allergensSeen: [...next.allergensSeen] } : {}),
       ...(next.ticked ? { ticked: [...next.ticked] } : {}),
       ...(next.saved ? { saved: [...next.saved] } : {}),
+      ...(next.blocked ? { blocked: [...next.blocked] } : {}),
       ...(next.notes ? { notes: next.notes } : {}),
       ...(next.cooked ? { cooked: [...next.cooked] } : {}),
       ...(next.shop ? { shop: next.shop } : {}),
@@ -105,16 +121,19 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     // Let the button's pressed state paint before the synchronous solve.
     setTimeout(() => {
       const locked = plan?.meals.filter((m) => m.locked) ?? [];
-      const next = generatePlan({ settings: nextSettings, locked, preferred: [...saved] });
+      const next = generatePlan({
+        settings: nextSettings, locked, preferred: [...saved], blocked: [...blocked],
+      });
       setPlan(next);
       setSettings(nextSettings);
       setEaten(new Set());
+      setSkipped(new Set());
       setTicked(new Set());
       setCooked(new Set());
       setSwaps({});
       persist({
         plan: next, settings: nextSettings,
-        eaten: new Set(), ticked: new Set(), cooked: new Set(), swaps: {},
+        eaten: new Set(), skipped: new Set(), ticked: new Set(), cooked: new Set(), swaps: {},
       });
       setGenerating(false);
     }, 10);
@@ -139,6 +158,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       restarts: 1,
       planId: plan.id,
       preferred: [...saved],
+      blocked: [...blocked],
     });
     setPlan(rebuilt);
     persist({ plan: rebuilt });
@@ -170,6 +190,23 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     else next.add(recipeId);
     setSaved(next);
     persist({ saved: next });
+  }
+
+  /** Ruling a recipe out also un-saves it: you cannot both love and refuse it. */
+  function toggleBlocked(recipeId: string) {
+    const next = new Set(blocked);
+    if (next.has(recipeId)) {
+      next.delete(recipeId);
+      setBlocked(next);
+      persist({ blocked: next });
+      return;
+    }
+    next.add(recipeId);
+    setBlocked(next);
+    const stillSaved = new Set(saved);
+    stillSaved.delete(recipeId);
+    setSaved(stillSaved);
+    persist({ blocked: next, saved: stillSaved });
   }
 
   /**
@@ -207,6 +244,25 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     persist({ swaps: next });
   }
 
+  /** "It didn't happen" — done, but nothing was tasted, so nothing is recorded. */
+  function toggleSkipped(dayIndex: number, slot: MealSlot) {
+    const key = `${dayIndex}:${slot}`;
+    const next = new Set(skipped);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setSkipped(next);
+
+    // A meal cannot be both eaten and skipped.
+    if (next.has(key) && eaten.has(key)) {
+      const e = new Set(eaten);
+      e.delete(key);
+      setEaten(e);
+      persist({ skipped: next, eaten: e });
+      return;
+    }
+    persist({ skipped: next });
+  }
+
   function toggleEaten(dayIndex: number, slot: MealSlot) {
     const key = `${dayIndex}:${slot}`;
     const next = new Set(eaten);
@@ -225,7 +281,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     persist({ eaten: next });
   }
 
-  const todayIndex = plan ? currentDayIndex(plan, eaten) : null;
+  const done = useMemo(() => new Set([...eaten, ...skipped]), [eaten, skipped]);
+  const todayIndex = plan ? currentDayIndex(plan, done) : null;
+  const planFinished = !!plan && todayIndex === null;
 
   // A plan built for lunches only is not the plan you get after ticking
   // breakfast, and saying nothing is how people conclude the app is broken.
@@ -240,13 +298,13 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<PlanContextValue>(
     () => ({
-      plan, settings, ready, generating, allergensSeen, eaten, ticked, saved, notes, cooked, shop, swaps,
-      todayIndex, planIsStale,
-      regenerate, updateSettings, swapMeal, toggleLock, toggleEaten, toggleTicked,
-      toggleSaved, setNote, toggleCooked, setShop, setSwap,
+      plan, settings, ready, generating, allergensSeen, eaten, skipped, ticked, saved, blocked, notes,
+      cooked, shop, swaps, todayIndex, planIsStale, planFinished,
+      regenerate, updateSettings, swapMeal, toggleLock, toggleEaten, toggleSkipped, toggleTicked,
+      toggleSaved, toggleBlocked, setNote, toggleCooked, setShop, setSwap,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [plan, settings, ready, generating, allergensSeen, eaten, ticked, saved, notes, cooked, shop, swaps, todayIndex, planIsStale]
+    [plan, settings, ready, generating, allergensSeen, eaten, skipped, ticked, saved, blocked, notes, cooked, shop, swaps, todayIndex, planIsStale, planFinished]
   );
 
   return <PlanContext.Provider value={value}>{children}</PlanContext.Provider>;

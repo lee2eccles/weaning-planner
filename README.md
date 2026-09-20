@@ -11,7 +11,7 @@ Built from [PRD.md](PRD.md). Additional recipes in [RECIPES-ADDITIONAL.md](RECIP
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 133 tests
+npm test         # 144 tests
 npm run build
 ```
 
@@ -22,10 +22,14 @@ Requires Node 20+.
 - **Plan** — ask for a number of meals and get that many, guaranteed legume-free.
   One meal is one sitting for everyone eating, so "4 lunches" is four days of lunch
   whether one baby eats them or two; portions of food are worked out from that. Swap
-  or lock any meal. Starting again reopens the question rather than silently reusing
-  last time's answer, and asks first if it would clear your shopping ticks.
+  or lock any meal, or rule one out for good — a recipe they refused is never planned or
+  offered again. Starting again reopens the question rather than silently reusing last
+  time's answer, and asks first if it would clear anything you have recorded.
   Share the plan straight to WhatsApp.
-- **Today** — where you are in the plan, and what to take out of the freezer tonight.
+- **Today** — where you are in the plan, what to take out of the freezer tonight, and one
+  button that sends the whole day to the other parent: which meal, what is in it, what to
+  defrost. Meals can be ticked off as eaten or marked as never having happened, which moves
+  the plan on without filing an allergen the twins never actually met.
   There are no dates anywhere in the app: a plan is a sequence of meals, not a diary,
   so it starts when you start it and moves on as you tick meals off.
 - **Shop** — one merged list per shop, grouped by aisle, tickable as you go with your place
@@ -40,7 +44,8 @@ Requires Node 20+.
   Copyable as plain text, because the kitchen is where the signal goes.
 - **Recipes** — the whole library, searchable by title, ingredient or plain words like
   "quick" or "iron"; press `/` anywhere on the page to jump to the box, Escape to clear,
-  and saved recipes sort to the top of the results. Save the ones you cook from and keep your own notes against them:
+  and saved recipes sort to the top of the results. One typo still finds it: "mackrel",
+  "makerel" and "mackeral" all reach the mackerel smash. Save the ones you cook from and keep your own notes against them:
   saved recipes are nudged into future plans, sorted to the top of the swap picker, and
   your note shows on the meal card on the day you serve it. Copy a recipe or the whole
   saved list into your notes app. The search is in the URL, so a filtered view can be
@@ -90,7 +95,7 @@ lib/
   shopping/merge.ts    quantity merging and pack conversion
   text/export.ts       plain text for a notes app — a recipe, or the saved list
   storage/local.ts     localStorage, the only module that touches persistence
-tests/                 133 tests, weighted to the planner, the legume rule and past bugs
+tests/                 144 tests, weighted to the planner, the legume rule and past bugs
 ```
 
 ## Offline

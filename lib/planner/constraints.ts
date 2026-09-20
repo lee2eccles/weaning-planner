@@ -88,12 +88,16 @@ export interface EligibilityContext {
   dayIndex: number;
   slot: MealSlot;
   settings: PlanSettings;
+  /** Recipes the parent has ruled out. Treated as hard as the legume rule. */
+  blocked?: Set<string>;
 }
 
 /** Every hard constraint, in one place. Returns null if eligible, else the reason. */
 export function ineligibleReason(recipe: Recipe, ctx: EligibilityContext): string | null {
   // H1 — the one that matters most.
   if (recipe.legumeStatus === "contains") return "contains legumes";
+
+  if (ctx.blocked?.has(recipe.id)) return "ruled out";
 
   if (!recipe.slots.includes(ctx.slot)) return "wrong meal slot";
 

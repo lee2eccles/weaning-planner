@@ -38,7 +38,8 @@ function buildAttempt(
   settings: PlanSettings,
   pool: Recipe[],
   rand: () => number,
-  preferred?: Set<string>
+  preferred?: Set<string>,
+  blocked?: Set<string>
 ): Attempt {
   const totalDays = planDays(settings);
   const meals: PlannedMeal[] = [];
@@ -61,7 +62,7 @@ function buildAttempt(
         preferred,
       };
 
-      const candidates = eligibleRecipes(pool, { meals, dayIndex: day, slot, settings });
+      const candidates = eligibleRecipes(pool, { meals, dayIndex: day, slot, settings, blocked });
       if (candidates.length === 0) { gaps++; continue; }
 
       const scored = candidates
@@ -69,8 +70,14 @@ function buildAttempt(
         .sort((a, b) => b.s - a.s);
 
       // Sample from the top few so restarts explore genuinely different plans.
+      // A saved recipe not yet in the plan takes the slot outright: sampling
+      // used to let a favourite lose a coin toss in every slot it qualified
+      // for, so saving a recipe could remove it from plans altogether.
+      const unusedSaved = scored.find(
+        (x) => preferred?.has(x.r.id) && !meals.some((m) => m.recipeId === x.r.id)
+      );
       const window = Math.min(3, scored.length);
-      const pick = scored[Math.floor(rand() * window)];
+      const pick = unusedSaved ?? scored[Math.floor(rand() * window)];
 
       const state = mealStateFor(pick.r, day)!;
       const cubes = state === "defrost" && pick.r.freezeFormat === "cube"
@@ -295,6 +302,8 @@ export interface GenerateOptions {
   planId?: string;
   /** Recipe ids to lean towards — the parent's saved list. */
   preferred?: string[];
+  /** Recipe ids never to plan — the parent's "not again" list. */
+  blocked?: string[];
 }
 
 /**
@@ -305,13 +314,15 @@ export interface GenerateOptions {
  * and a four-lunch plan is not "the next four days". So the current day is the
  * first one with a meal still to eat, and it advances as meals are ticked off.
  */
-export function currentDayIndex(plan: Plan, eaten: Set<string> = new Set()): number {
+export function currentDayIndex(plan: Plan, done: Set<string> = new Set()): number | null {
   const total = planDays(plan.settings);
   for (let day = 0; day < total; day++) {
     const meals = plan.meals.filter((m) => m.dayIndex === day);
-    if (meals.some((m) => !eaten.has(`${m.dayIndex}:${m.slot}`))) return day;
+    if (meals.some((m) => !done.has(`${m.dayIndex}:${m.slot}`))) return day;
   }
-  return Math.max(0, total - 1);
+  // Every meal eaten or skipped. The plan is finished, and saying so is more
+  // use than pointing at the last day as though it were still to come.
+  return null;
 }
 
 export function generatePlan(options: GenerateOptions = {}): Plan {
@@ -321,10 +332,11 @@ export function generatePlan(options: GenerateOptions = {}): Plan {
   const baseSeed = options.seed ?? Math.floor(Math.random() * 1e9);
 
   const preferred = options.preferred?.length ? new Set(options.preferred) : undefined;
+  const blocked = options.blocked?.length ? new Set(options.blocked) : undefined;
 
   let best: Attempt | null = null;
   for (let i = 0; i < restarts; i++) {
-    const attempt = buildAttempt(settings, pool, mulberry32(baseSeed + i * 7919), preferred);
+    const attempt = buildAttempt(settings, pool, mulberry32(baseSeed + i * 7919), preferred, blocked);
     if (!best || attempt.score > best.score) best = attempt;
   }
 
@@ -334,9 +346,16 @@ export function generatePlan(options: GenerateOptions = {}): Plan {
   // flag. Forcing locked:true here meant a single swap silently locked the whole
   // plan and turned Regenerate into a no-op.
   if (options.locked?.length) {
-    const keptKeys = new Set(options.locked.map((m) => `${m.dayIndex}:${m.slot}`));
+    // A meal locked on day 12 has nowhere to go in a four-day plan. It used to
+    // be re-applied anyway: invisible in the grid, but still shopped for and
+    // still cooked, at about 50% extra food.
+    const totalDays = planDays(settings);
+    const inRange = options.locked.filter(
+      (m) => m.dayIndex < totalDays && settings.slots.includes(m.slot)
+    );
+    const keptKeys = new Set(inRange.map((m) => `${m.dayIndex}:${m.slot}`));
     meals = meals.filter((m) => !keptKeys.has(`${m.dayIndex}:${m.slot}`));
-    for (const kept of options.locked) {
+    for (const kept of inRange) {
       const r = getRecipe(kept.recipeId);
       // A swapped-in recipe keeps differently, so its state must be recomputed.
       const state = mealStateFor(r, kept.dayIndex) ?? "cookToday";
@@ -379,11 +398,12 @@ export function swapOptions(
   plan: Plan,
   dayIndex: number,
   slot: MealSlot,
-  saved?: Set<string>
+  saved?: Set<string>,
+  blocked?: Set<string>
 ): Recipe[] {
   const others = plan.meals.filter((m) => !(m.dayIndex === dayIndex && m.slot === slot));
   const options = eligibleRecipes(PLANNABLE_RECIPES, {
-    meals: others, dayIndex, slot, settings: plan.settings,
+    meals: others, dayIndex, slot, settings: plan.settings, blocked,
   });
   if (!saved?.size) return options;
   return [...options].sort(

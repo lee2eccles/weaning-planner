@@ -59,7 +59,7 @@ function hoursAndMinutes(total: number): string {
 }
 
 export default function PrepPage() {
-  const { plan, ready, cooked, toggleCooked, swaps } = usePlan();
+  const { plan, ready, cooked, toggleCooked, swaps, notes } = usePlan();
 
   if (!ready) return <p className="text-ink-muted">Loading…</p>;
   if (!plan) {
@@ -109,20 +109,35 @@ export default function PrepPage() {
               <h2 className="text-lg font-semibold text-ink">
                 {plan.prepSessions.length > 1 ? `Prep session ${session.index + 1}` : "Prep day"}
                 <span className="ml-2 text-sm font-normal text-ink-muted">
-                  day {session.dayIndex + 1}, covering days {session.coversDayIndices[0] + 1}–
-                  {session.coversDayIndices[session.coversDayIndices.length - 1] + 1}
+                  day {session.dayIndex + 1}
+                  {session.coversDayIndices.length > 1
+                    ? `, covering days ${session.coversDayIndices[0] + 1}–${
+                        session.coversDayIndices[session.coversDayIndices.length - 1] + 1
+                      }`
+                    : ""}
                 </span>
               </h2>
               <div className="no-print">
                 <ShareButton
-                  text={prepSessionToText(session, getRecipe, perPortion, swaps)}
+                  text={prepSessionToText(
+                    session,
+                    getRecipe,
+                    perPortion,
+                    swaps,
+                    new Set(
+                      [...cooked]
+                        .filter((k) => k.startsWith(`${session.index}:`))
+                        .map((k) => k.slice(String(session.index).length + 1))
+                    )
+                  )}
                   title="Prep sheet"
                   label="Share prep sheet"
                 />
               </div>
             </div>
             <p className="mb-4 text-sm tabular-nums text-ink-muted">
-              {session.cook.length} recipes · about {hoursAndMinutes(minutes)} hands-on ·{" "}
+              {session.cook.length} recipe{session.cook.length === 1 ? "" : "s"} · about{" "}
+              {hoursAndMinutes(minutes)} hands-on ·{" "}
               {totalCubes} cubes in trays
               {flatPortions > 0 && ` · ${flatPortions} portions frozen flat`} ·{" "}
               {session.waves.length} freezing wave{session.waves.length === 1 ? "" : "s"}
@@ -159,6 +174,7 @@ export default function PrepPage() {
                     wave={waves.get(item.recipeId)}
                     cubesPerPortion={perPortion}
                     swaps={swaps}
+                    note={notes[item.recipeId]}
                     cooked={cooked.has(`${session.index}:${item.recipeId}`)}
                     onToggleCooked={() => toggleCooked(`${session.index}:${item.recipeId}`)}
                   />

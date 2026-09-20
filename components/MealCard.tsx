@@ -5,11 +5,13 @@ import type { MealSlot, PlannedMeal, Plan } from "@/lib/types";
 import { getRecipe } from "@/lib/data/recipes";
 import { swapOptions } from "@/lib/planner/generate";
 import { AllergenBadges, Badge, StateLine } from "./ui";
+import { Star } from "./icons";
 import { RecipeDetail } from "./RecipeDetail";
 import { usePlan } from "./PlanProvider";
 
 export function MealCard({
-  meal, plan, allergensSeen, onSwap, onToggleLock, showSlot = false,
+  meal, plan, allergensSeen, onSwap, onToggleLock, showSlot = false, showRuleOut = false,
+  bare = false,
 }: {
   meal: PlannedMeal;
   plan: Plan;
@@ -18,15 +20,22 @@ export function MealCard({
   onToggleLock: (dayIndex: number, slot: MealSlot) => void;
   /** Only worth showing when more than one meal a day is planned. */
   showSlot?: boolean;
+  /**
+   * Offer "not again". Shown where a refusal actually happens — the Today
+   * screen — rather than on all fourteen cards of a plan you are still making.
+   */
+  showRuleOut?: boolean;
+  /** Drop the card chrome, for when the caller supplies its own. */
+  bare?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [swapping, setSwapping] = useState(false);
-  const { saved, notes } = usePlan();
+  const { saved, notes, blocked, toggleBlocked } = usePlan();
   const recipe = getRecipe(meal.recipeId);
   const note = notes[recipe.id];
 
   return (
-    <div className="rounded-lg border border-sage-tint bg-white p-3">
+    <div className={bare ? "p-3" : "rounded-lg border border-sage-tint bg-white p-3"}>
       {showSlot && (
         <p className="mb-1 text-xs font-medium capitalize text-ink-muted">{meal.slot}</p>
       )}
@@ -81,6 +90,24 @@ export function MealCard({
         </button>
       </div>
 
+      {/*
+        The mirror of saving, and the one that saves the most time: a recipe
+        they refused should never be offered again, not swapped away every week.
+      */}
+      {showRuleOut && (
+        <button
+          onClick={() => toggleBlocked(recipe.id)}
+          aria-pressed={blocked.has(recipe.id)}
+          className={`mt-1.5 min-h-[2.75rem] w-full text-left text-xs font-medium underline underline-offset-2 ${
+            blocked.has(recipe.id) ? "text-alert" : "text-ink-muted hover:text-ink"
+          }`}
+        >
+          {blocked.has(recipe.id)
+            ? "Ruled out — put it back"
+            : "Not again — never plan this one"}
+        </button>
+      )}
+
       {swapping && (
         <div className="mt-2 max-h-64 overflow-y-auto rounded-lg bg-cream p-1">
           <p className="px-2 py-1.5 text-xs text-ink-muted">
@@ -88,17 +115,23 @@ export function MealCard({
               ? "Your saved recipes first, then everything else that keeps well enough for this day."
               : "Legume-free options that keep well enough for this day."}
           </p>
-          {swapOptions(plan, meal.dayIndex, meal.slot, saved)
+          {swapOptions(plan, meal.dayIndex, meal.slot, saved, blocked)
             .filter((r) => r.id !== meal.recipeId)
             .map((r) => (
               <button
                 key={r.id}
                 onClick={() => { onSwap(meal.dayIndex, meal.slot, r.id); setSwapping(false); }}
-                className="block min-h-[2.75rem] w-full rounded px-2 py-2 text-left text-sm text-ink hover:bg-sage-tint active:bg-sage"
+                className="block w-full rounded px-2 py-2 text-left hover:bg-sage-tint active:bg-sage"
               >
-                {saved.has(r.id) && <span aria-hidden="true">★ </span>}
-                {r.title}
-                {saved.has(r.id) && <span className="sr-only"> (saved)</span>}
+                <span className="flex min-h-[2.75rem] items-center gap-1.5 text-sm text-ink">
+                  {saved.has(r.id) && <Star filled />}
+                  {r.title}
+                  {saved.has(r.id) && <span className="sr-only">(saved)</span>}
+                </span>
+                {/* What you learned last time, at the moment you are choosing. */}
+                {notes[r.id] && (
+                  <span className="block pb-1 text-xs text-ink-muted">{notes[r.id]}</span>
+                )}
               </button>
             ))}
         </div>

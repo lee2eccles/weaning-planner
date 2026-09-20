@@ -76,10 +76,21 @@ describe("where you are in the plan", () => {
     expect(currentDayIndex(plan, eaten)).toBe(3);
   });
 
-  it("holds on the last day once everything is eaten", () => {
+  it("reports a finished plan rather than pointing at the last day", () => {
     const plan = generatePlan({ settings: { meals: 7 }, restarts: 5, seed: 1 });
     const eaten = new Set(plan.meals.map((m) => `${m.dayIndex}:${m.slot}`));
-    expect(currentDayIndex(plan, eaten)).toBe(6);
+    expect(currentDayIndex(plan, eaten)).toBeNull();
+  });
+
+  it("moves past a meal that never happened", () => {
+    // Skipping used to pin "up next" on the skipped day forever, so the only
+    // way onward was to tick "eaten" on food nobody ate — which also filed a
+    // false first allergen exposure.
+    const plan = generatePlan({ settings: { meals: 7 }, restarts: 5, seed: 1 });
+    const done = new Set<string>();
+    for (const m of plan.meals.filter((x) => x.dayIndex === 0)) done.add(`0:${m.slot}`);
+    for (const m of plan.meals.filter((x) => x.dayIndex === 1)) done.add(`1:${m.slot}`);
+    expect(currentDayIndex(plan, done)).toBe(2);
   });
 
   it("carries no calendar date at all", () => {

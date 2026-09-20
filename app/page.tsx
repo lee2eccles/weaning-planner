@@ -15,7 +15,7 @@ import { coverageSummary, planDays } from "@/lib/planner/coverage";
 export default function PlanPage() {
   const {
     plan, ready, generating, regenerate, swapMeal, toggleLock, allergensSeen, todayIndex,
-    ticked, eaten,
+    ticked, eaten, skipped, cooked, swaps, planFinished,
   } = usePlan();
   const [week, setWeek] = useState(0);
   const [adjusting, setAdjusting] = useState(false);
@@ -24,7 +24,7 @@ export default function PlanPage() {
   // Rebuilding throws away the shopping ticks and the eaten marks, which is a
   // real loss halfway round a supermarket. Ask first, but only when there is
   // something to lose.
-  const atRisk = ticked.size + eaten.size;
+  const atRisk = ticked.size + eaten.size + skipped.size + cooked.size + Object.keys(swaps).length;
 
   function rebuild() {
     if (atRisk > 0 && !confirmRegen) {
@@ -72,7 +72,14 @@ export default function PlanPage() {
           The plan
         </SectionHeading>
         <div className="no-print flex flex-wrap gap-2">
-          <ShareButton text={planToText(plan)} title="Our meal plan" label="Share plan" />
+          <ShareButton
+            text={planToText(plan, {
+              done: new Set([...eaten, ...skipped]),
+              currentDay: todayIndex,
+            })}
+            title="Our meal plan"
+            label="Share plan"
+          />
           <Button
             variant="ghost"
             onClick={() => {
@@ -90,13 +97,28 @@ export default function PlanPage() {
       <StaleBar />
       <WarningList warnings={plan.warnings} />
 
+      {planFinished && !adjusting && (
+        <div className="no-print mb-5 rounded-xl border border-blush bg-blush-tint px-4 py-3">
+          <p className="text-sm font-medium text-ink">Every meal in this plan is ticked off.</p>
+          <p className="mt-1 text-sm text-ink">
+            Nothing here goes stale, so start the next one whenever it suits.
+          </p>
+          <div className="mt-3">
+            <Button onClick={() => setAdjusting(true)}>Plan the next few meals</Button>
+          </div>
+        </div>
+      )}
+
       {confirmRegen && (
         <div className="no-print mb-5 rounded-xl border border-alert/40 bg-alert-tint px-4 py-3">
           <p className="text-sm text-ink">
-            Rebuilding starts the plan again: {ticked.size} shopping tick
-            {ticked.size === 1 ? "" : "s"} and {eaten.size} meal
-            {eaten.size === 1 ? "" : "s"} marked eaten will be cleared. Meals you have locked are
-            kept.
+            Starting again clears this plan and everything recorded against it:{" "}
+            {ticked.size} shopping tick{ticked.size === 1 ? "" : "s"},{" "}
+            {eaten.size + skipped.size} meal{eaten.size + skipped.size === 1 ? "" : "s"} ticked off,{" "}
+            {cooked.size} recipe{cooked.size === 1 ? "" : "s"} cooked, and{" "}
+            {Object.keys(swaps).length} note{Object.keys(swaps).length === 1 ? "" : "s"} you wrote
+            at the shop. Meals you have locked are kept, and your saved recipes and their notes are
+            never touched.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button onClick={() => setConfirmRegen(false)}>Keep this plan</Button>
@@ -168,7 +190,7 @@ export default function PlanPage() {
               <div className="flex items-baseline gap-2 px-1">
                 <h2 className="font-semibold tabular-nums text-ink">Day {dayIndex + 1}</h2>
                 {isToday && <span className="text-xs font-medium text-ink">Up next</span>}
-                {isPrepDay && !isToday && <span className="text-xs font-medium text-ink">Prep day</span>}
+                {isPrepDay && <span className="text-xs font-medium text-ink">Prep day</span>}
               </div>
               {meals.length === 0 && (
                 <p className="rounded-lg border border-dashed border-sage p-3 text-xs text-ink-muted">

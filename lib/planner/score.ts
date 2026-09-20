@@ -2,6 +2,7 @@ import type { PlannedMeal, Recipe, PlanSettings } from "@/lib/types";
 import { PANTRY_STAPLES } from "@/lib/data/ingredients";
 import { getRecipe } from "@/lib/data/recipes";
 import { mealStateFor, sessionForDay } from "./constraints";
+import { planDays } from "./coverage";
 import { cubesPerPortion, cubesPerWave, trayFit } from "./portions";
 
 /**
@@ -94,14 +95,22 @@ export function packEfficiency(recipe: Recipe, ctx: ScoreContext): number {
   return score;
 }
 
-/** Days since this recipe last filled this slot. Pushes repeats apart. */
+/**
+ * Days since this recipe last filled this slot. Pushes repeats apart.
+ *
+ * The scale is the plan, not a fixed week. Judging a four-day plan by a
+ * fortnight's idea of variety made it cook three different recipes for four
+ * lunches — one of them a 35-minute risotto for two portions, dragging five
+ * items onto the shopping list.
+ */
 export function varietyScore(recipe: Recipe, ctx: ScoreContext): number {
   const previous = ctx.meals
     .filter((m) => m.recipeId === recipe.id && m.slot === ctx.slot)
     .map((m) => m.dayIndex);
   if (previous.length === 0) return 1;
   const gap = ctx.dayIndex - Math.max(...previous);
-  return Math.min(gap / 7, 1);
+  const scale = Math.max(2, Math.min(7, planDays(ctx.settings)));
+  return Math.min(gap / scale, 1);
 }
 
 /**
@@ -188,6 +197,15 @@ export function freezerPressure(recipe: Recipe, ctx: ScoreContext): number {
   return pressure * (cubes / 4);
 }
 
+/**
+ * How much a repeat costs. On a short plan repeating a recipe is the point —
+ * cooking one batch twice is why you batch cook — so the flat penalty that
+ * suits a fortnight is relaxed as the plan gets shorter.
+ */
+function repeatCost(ctx: ScoreContext): number {
+  return planDays(ctx.settings) <= 7 ? 0.1 : 0.25;
+}
+
 export function scoreRecipe(recipe: Recipe, ctx: ScoreContext): number {
   return (
     WEIGHTS.saved * (ctx.preferred?.has(recipe.id) ? 1 : 0) +
@@ -198,7 +216,7 @@ export function scoreRecipe(recipe: Recipe, ctx: ScoreContext): number {
     WEIGHTS.tray * trayFitScore(recipe, ctx) -
     WEIGHTS.batchPreference * batchPreferencePenalty(recipe, ctx) -
     WEIGHTS.effort * effortPenalty(recipe, ctx) -
-    WEIGHTS.repeat * (ctx.sessionUse.get(recipe.id) ?? 0) * 0.25 -
+    WEIGHTS.repeat * (ctx.sessionUse.get(recipe.id) ?? 0) * repeatCost(ctx) -
     WEIGHTS.salt * saltPenalty(recipe, ctx) -
     WEIGHTS.freezerPressure * freezerPressure(recipe, ctx)
   );
