@@ -1,57 +1,73 @@
-import type { Coverage, CoverageMode, PlanSettings } from "@/lib/types";
+import type { MealSlot, PlanSettings } from "@/lib/types";
 
 /**
- * Turning "how much food do I need?" into a number of days.
+ * How much food a plan has to cover, counted in meals.
  *
- * Everything downstream — the planner, the prep sheet, the shopping lists —
- * works in days. This module is the only place that knows a plan can also be
- * asked for in weeks or in portions, which keeps that flexibility from leaking
- * into the solver. PRD §5.5.
+ * A meal is one sitting for everyone eating: four lunches means four days of
+ * lunch, whether one baby eats them or two. That is how the question actually
+ * arrives — "I only need four lunches this week" — so it is the number the app
+ * asks for and the only one it stores. Portions of food are derived from it,
+ * not the other way round.
+ *
+ * Everything downstream still works in days; this module is the only place
+ * that knows how meals become days.
  */
 
-export const MIN_DAYS = 1;
-/** Four weeks. Beyond that the fresh food stops being fresh. */
+export const MIN_MEALS = 1;
+/** Four weeks of every planned slot. Beyond that the fresh food is not fresh. */
 export const MAX_DAYS = 28;
 
 export const MIN_EATERS = 1;
 export const MAX_EATERS = 8;
 
-/** Coverage constructors, so callers read as the thing they are asking for. */
-export const days = (value: number): Coverage => ({ mode: "days", value });
-export const weeks = (value: number): Coverage => ({ mode: "weeks", value });
-export const portions = (value: number): Coverage => ({ mode: "portions", value });
+type Sized = Pick<PlanSettings, "meals" | "slots" | "eaters">;
 
-export function clampDays(n: number): number {
-  if (!Number.isFinite(n)) return MIN_DAYS;
-  return Math.min(MAX_DAYS, Math.max(MIN_DAYS, Math.round(n)));
+/** Meals eaten per day — one per planned slot. */
+export function slotsPerDay(settings: Pick<PlanSettings, "slots">): number {
+  return Math.max(1, settings.slots.length);
 }
 
-/** Portions produced by one day of the plan — one per eater, per meal slot. */
-export function portionsPerDay(settings: Pick<PlanSettings, "slots" | "eaters">): number {
-  return Math.max(1, settings.slots.length) * Math.max(MIN_EATERS, settings.eaters);
+export function maxMeals(settings: Pick<PlanSettings, "slots">): number {
+  return MAX_DAYS * slotsPerDay(settings);
 }
 
-/** How many days the plan runs for. The canonical number. */
-export function planDays(settings: Pick<PlanSettings, "coverage" | "slots" | "eaters">): number {
-  const { mode, value } = settings.coverage;
-  if (mode === "weeks") return clampDays(value * 7);
-  if (mode === "portions") return clampDays(Math.ceil(value / portionsPerDay(settings)));
-  return clampDays(value);
+export function clampMeals(value: number, settings: Pick<PlanSettings, "slots">): number {
+  if (!Number.isFinite(value)) return MIN_MEALS;
+  return Math.min(maxMeals(settings), Math.max(MIN_MEALS, Math.round(value)));
 }
 
-/** Baby portions the plan actually produces. */
-export function portionsPlanned(settings: Pick<PlanSettings, "coverage" | "slots" | "eaters">): number {
-  return planDays(settings) * portionsPerDay(settings);
+/** Days the plan runs for. Two slots a day means four meals is two days. */
+export function planDays(settings: Sized): number {
+  return Math.max(1, Math.ceil(clampMeals(settings.meals, settings) / slotsPerDay(settings)));
+}
+
+/** Meals actually planned. Rounds up to a whole day when slots do not divide. */
+export function mealsPlanned(settings: Sized): number {
+  return planDays(settings) * slotsPerDay(settings);
+}
+
+/** Baby portions of food: every meal feeds everyone eating. */
+export function portionsPlanned(settings: Sized): number {
+  return mealsPlanned(settings) * Math.max(MIN_EATERS, settings.eaters);
 }
 
 /**
- * A portions target rarely divides into whole days, and the plan always rounds
- * up — being asked for 30 portions and handed 28 is the failure mode worth
- * avoiding. This is the surplus, so the UI can own up to it.
+ * Asking for three meals across two slots a day gets you four, because half a
+ * day is not a thing the planner can cook. This is the surplus, so the UI can
+ * own up to it rather than quietly changing the number.
  */
-export function portionsOvershoot(settings: Pick<PlanSettings, "coverage" | "slots" | "eaters">): number {
-  if (settings.coverage.mode !== "portions") return 0;
-  return Math.max(0, portionsPlanned(settings) - Math.round(settings.coverage.value));
+export function mealsOvershoot(settings: Sized): number {
+  return Math.max(0, mealsPlanned(settings) - clampMeals(settings.meals, settings));
+}
+
+/** "lunches" · "breakfasts" · "meals" — what the number in the box counts. */
+export function mealWord(settings: Pick<PlanSettings, "slots">, count = 2): string {
+  if (settings.slots.length === 1) {
+    const slot: MealSlot = settings.slots[0];
+    if (count === 1) return slot === "lunch" ? "lunch" : "breakfast";
+    return slot === "lunch" ? "lunches" : "breakfasts";
+  }
+  return count === 1 ? "meal" : "meals";
 }
 
 export function daysLabel(days: number): string {
@@ -63,40 +79,9 @@ export function daysLabel(days: number): string {
   return `${weeksPart} and ${d} day${d === 1 ? "" : "s"}`;
 }
 
-/** "14 days · 28 portions" — the phrase that appears under every heading. */
-export function coverageSummary(settings: Pick<PlanSettings, "coverage" | "slots" | "eaters">): string {
-  const days = planDays(settings);
-  return `${daysLabel(days)} · ${portionsPlanned(settings)} portions`;
-}
-
-/** Same coverage expressed in another unit, for switching the picker's mode. */
-export function convertCoverage(
-  settings: Pick<PlanSettings, "coverage" | "slots" | "eaters">,
-  mode: CoverageMode
-): Coverage {
-  if (mode === settings.coverage.mode) return settings.coverage;
-  const days = planDays(settings);
-  if (mode === "days") return { mode, value: days };
-  if (mode === "weeks") return { mode, value: Math.max(1, Math.round(days / 7)) };
-  return { mode, value: days * portionsPerDay(settings) };
-}
-
-/** Bounds for the picker's stepper, in the unit currently being used. */
-export function coverageBounds(
-  settings: Pick<PlanSettings, "slots" | "eaters">,
-  mode: CoverageMode
-): { min: number; max: number; step: number } {
-  if (mode === "weeks") return { min: 1, max: MAX_DAYS / 7, step: 1 };
-  if (mode === "days") return { min: MIN_DAYS, max: MAX_DAYS, step: 1 };
-  const per = portionsPerDay(settings);
-  return { min: per, max: MAX_DAYS * per, step: per };
-}
-
-export function clampCoverage(
-  coverage: Coverage,
-  settings: Pick<PlanSettings, "slots" | "eaters">
-): Coverage {
-  const { min, max } = coverageBounds(settings, coverage.mode);
-  const value = Number.isFinite(coverage.value) ? Math.round(coverage.value) : min;
-  return { mode: coverage.mode, value: Math.min(max, Math.max(min, value)) };
+/** "4 lunches · 8 baby portions" — the phrase under every heading. */
+export function coverageSummary(settings: Sized): string {
+  const meals = mealsPlanned(settings);
+  const portions = portionsPlanned(settings);
+  return `${meals} ${mealWord(settings, meals)} · ${portions} baby portion${portions === 1 ? "" : "s"}`;
 }

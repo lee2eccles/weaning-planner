@@ -2,7 +2,7 @@
 
 import { usePlan } from "@/components/PlanProvider";
 import { getRecipe } from "@/lib/data/recipes";
-import { Card, CopyButton, SectionHeading, EmptyState } from "@/components/ui";
+import { Card, SectionHeading, ShareButton, EmptyState } from "@/components/ui";
 import { CookRow } from "@/components/CookRow";
 import { WarningList, LegumeBar, StaleBar } from "@/components/LegumeBanner";
 import { cubesPerPortion } from "@/lib/planner/portions";
@@ -11,13 +11,6 @@ import type { WavePlacement } from "@/components/CookRow";
 import { prepSessionToText } from "@/lib/text/export";
 
 const WAVE_TIMING = ["morning — fill the trays", "afternoon", "overnight", "next morning"];
-const DATE_FMT = new Intl.DateTimeFormat("en-GB");
-
-/** The calendar date of a prep session, from the plan — not from right now. */
-function prepDateFor(startDate: string, dayIndex: number): Date {
-  const [y, m, d] = startDate.split("-").map(Number);
-  return new Date(y, m - 1, d + dayIndex);
-}
 
 /**
  * Which freezing wave each recipe belongs to, and which trays it fills.
@@ -95,7 +88,6 @@ export default function PrepPage() {
 
       {plan.prepSessions.map((session) => {
         const totalCubes = session.cook.reduce((n, c) => n + c.toFreezerCubes, 0);
-        const prepDate = prepDateFor(plan.startDate, session.dayIndex);
         const waves = waveIndex(session);
         const cookInOrder = [...session.cook].sort((a, b) => {
           const wa = waves.get(a.recipeId)?.waves[0] ?? Infinity;
@@ -122,9 +114,10 @@ export default function PrepPage() {
                 </span>
               </h2>
               <div className="no-print">
-                <CopyButton
+                <ShareButton
                   text={prepSessionToText(session, getRecipe, perPortion, swaps)}
-                  label="Copy prep sheet"
+                  title="Prep sheet"
+                  label="Share prep sheet"
                 />
               </div>
             </div>
@@ -247,8 +240,9 @@ export default function PrepPage() {
             <Card tone="blush">
               <h3 className="mb-2 font-semibold text-ink">Bag labels</h3>
               <p className="mb-3 text-xs text-ink">
-                One recipe per bag. Cubes from different recipes are indistinguishable once frozen,
-                and guessing is how a legume-free plan stops being legume-free.
+                One recipe per bag, and write today&rsquo;s date in the gap as you seal it. Cubes
+                from different recipes are indistinguishable once frozen, and guessing is how a
+                legume-free plan stops being legume-free.
               </p>
               <ul className="space-y-2">
                 {session.cook
@@ -261,10 +255,7 @@ export default function PrepPage() {
                         {r.freezeFormat === "cube"
                           ? ` · ${c.toFreezerCubes} cubes · ${perPortion} cubes = 1 portion`
                           : ` · ${c.toFreezerPortions} portions, frozen flat`}
-                        {" · frozen "}
-                        {DATE_FMT.format(prepDate)}
-                        {" · use by "}
-                        {DATE_FMT.format(new Date(prepDate.getTime() + 30 * 864e5))}
+                        {" · use within 1 month · frozen on ___________"}
                         {r.allergens.length > 0 && ` · contains ${r.allergens.join(", ")}`}
                       </li>
                     );

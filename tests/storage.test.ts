@@ -27,14 +27,15 @@ describe("storage migration", () => {
   it("turns a v1 week count into a coverage target meaning the same thing", () => {
     const out = migrateStored(structuredClone(v1));
     expect(out.version).toBe(SCHEMA_VERSION);
-    expect(out.settings!.coverage).toEqual({ mode: "weeks", value: 3 });
+    // Three weeks of lunches is twenty-one lunches.
+    expect(out.settings!.meals).toBe(21);
     expect(planDays(out.settings!)).toBe(21);
     expect((out.settings as unknown as Record<string, unknown>).weeks).toBeUndefined();
   });
 
   it("migrates the saved plan's own settings too", () => {
     const out = migrateStored(structuredClone(v1));
-    expect(out.plan!.settings.coverage).toEqual({ mode: "weeks", value: 3 });
+    expect(out.plan!.settings.meals).toBe(21);
     expect(planDays(out.plan!.settings)).toBe(21);
   });
 

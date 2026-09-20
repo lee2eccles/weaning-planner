@@ -1,19 +1,13 @@
 "use client";
 
 import { usePlan } from "./PlanProvider";
-import { Button, Chip, Segmented, Stepper } from "./ui";
+import { Button, Chip, Stepper } from "./ui";
 import {
-  MAX_EATERS, MIN_EATERS, clampCoverage, convertCoverage, coverageBounds,
-  daysLabel, planDays, portionsPerDay, portionsPlanned, portionsOvershoot,
+  MAX_EATERS, MIN_EATERS, MIN_MEALS, clampMeals, daysLabel, maxMeals, mealWord,
+  mealsOvershoot, mealsPlanned, planDays, portionsPlanned,
 } from "@/lib/planner/coverage";
 import { MAX_DAYS_PER_PREP_SESSION } from "@/lib/planner/constraints";
-import type { CoverageMode, MealSlot } from "@/lib/types";
-
-const MODES: { value: CoverageMode; label: string }[] = [
-  { value: "days", label: "Days" },
-  { value: "weeks", label: "Weeks" },
-  { value: "portions", label: "Portions" },
-];
+import type { MealSlot } from "@/lib/types";
 
 const SLOT_BLURB: Record<MealSlot, string> = {
   breakfast: "Adds the breakfast library, and roughly doubles the shopping.",
@@ -23,11 +17,11 @@ const SLOT_BLURB: Record<MealSlot, string> = {
 /**
  * The one place a plan's size is decided.
  *
- * People arrive at the same question from different directions — "the next
- * fortnight", "the ten days before we travel", "the forty portions of freezer
- * space I have" — so all three are first-class ways of asking, and the card
- * shows the other two back as you go. Every change is saved immediately;
- * `onSubmit` is only for the case where there is no plan yet to be made stale.
+ * It asks one question — how many meals — because that is the whole question:
+ * "I only need four lunches this week" is a complete brief. It used to offer
+ * days, weeks and portions as three ways of saying the same thing, which was
+ * eleven controls for one number and a summary that answered in the unit you
+ * had just left.
  */
 export function PlanSetup({
   onSubmit, submitLabel = "Make the plan", busy = false,
@@ -37,32 +31,17 @@ export function PlanSetup({
   busy?: boolean;
 }) {
   const { settings, updateSettings } = usePlan();
-  const { coverage } = settings;
 
+  const meals = clampMeals(settings.meals, settings);
   const days = planDays(settings);
-  const perDay = portionsPerDay(settings);
-  const bounds = coverageBounds(settings, coverage.mode);
-  const overshoot = portionsOvershoot(settings);
+  const overshoot = mealsOvershoot(settings);
   const sessions = Math.ceil(days / MAX_DAYS_PER_PREP_SESSION);
+  const word = mealWord(settings, meals);
 
-  const presets =
-    coverage.mode === "weeks"
-      ? [1, 2, 3, 4]
-      : coverage.mode === "days"
-        ? [3, 5, 7, 10, 14]
-        : [7, 14, 21, 28].map((d) => d * perDay);
+  const presets = [4, 7, 14, 28].filter((n) => n <= maxMeals(settings));
 
-  function setValue(value: number) {
-    updateSettings({ coverage: clampCoverage({ mode: coverage.mode, value }, settings) });
-  }
-
-  function setMode(mode: CoverageMode) {
-    updateSettings({ coverage: clampCoverage(convertCoverage(settings, mode), settings) });
-  }
-
-  function setEaters(eaters: number) {
-    const next = { ...settings, eaters };
-    updateSettings({ eaters, coverage: clampCoverage(settings.coverage, next) });
+  function setMeals(value: number) {
+    updateSettings({ meals: clampMeals(value, settings) });
   }
 
   function toggleSlot(slot: MealSlot) {
@@ -71,39 +50,27 @@ export function PlanSetup({
     // Planning nothing is not a useful state.
     if (next.length === 0) return;
     const slots = (["breakfast", "lunch"] as MealSlot[]).filter((s) => next.includes(s));
-    updateSettings({ slots, coverage: clampCoverage(settings.coverage, { ...settings, slots }) });
+    updateSettings({ slots, meals: clampMeals(settings.meals, { slots }) });
   }
 
   return (
     <div className="rounded-xl border border-sage-tint bg-white p-5">
       <div className="space-y-5">
-        <div>
-          <p className="mb-2 text-sm font-medium text-ink">How much food do you need?</p>
-          <Segmented label="Set the plan by" value={coverage.mode} options={MODES} onChange={setMode} />
-          <p className="mt-2 text-xs text-ink-muted">
-            {coverage.mode === "portions"
-              ? "Useful when the freezer, not the calendar, is what is deciding."
-              : "Set it in whatever unit you are already thinking in — they all reach the same plan."}
-          </p>
-        </div>
-
         <Stepper
-          label={
-            coverage.mode === "weeks" ? "Weeks" : coverage.mode === "days" ? "Days" : "Baby portions"
-          }
-          value={coverage.value}
-          min={bounds.min}
-          max={bounds.max}
-          step={coverage.mode === "portions" ? bounds.step : 1}
-          onChange={setValue}
+          label={`How many ${mealWord(settings, 2)} do you need?`}
+          value={meals}
+          min={MIN_MEALS}
+          max={maxMeals(settings)}
+          onChange={setMeals}
+          hint={`One ${mealWord(settings, 1)} feeds everyone eating — ${settings.eaters} portion${
+            settings.eaters === 1 ? "" : "s"
+          } of food each time.`}
         />
 
         <div className="flex flex-wrap gap-2">
           {presets.map((n) => (
-            <Chip key={n} pressed={coverage.value === n} onClick={() => setValue(n)}>
-              {coverage.mode === "portions" ? `${n} portions` : n}
-              {coverage.mode === "weeks" ? (n === 1 ? " week" : " weeks") : ""}
-              {coverage.mode === "days" ? (n === 1 ? " day" : " days") : ""}
+            <Chip key={n} pressed={meals === n} onClick={() => setMeals(n)}>
+              {n} {mealWord(settings, n)}
             </Chip>
           ))}
         </div>
@@ -140,28 +107,26 @@ export function PlanSetup({
           value={settings.eaters}
           min={MIN_EATERS}
           max={MAX_EATERS}
-          onChange={setEaters}
+          onChange={(eaters) => updateSettings({ eaters })}
           hint="One portion each, every meal."
         />
 
         {/* The summary is the point of the card: it says what you just asked for. */}
         <div className="rounded-lg bg-sage-tint px-4 py-3">
           <p className="text-sm font-medium text-ink">
-            {daysLabel(days)} · {settings.slots.join(" and ")} · {portionsPlanned(settings)} baby
-            portions
+            {mealsPlanned(settings)} {word} · {portionsPlanned(settings)} baby portions ·{" "}
+            {daysLabel(days)} of food
           </p>
           <p className="mt-1 text-sm text-ink-muted">
             {sessions === 1
-              ? "One prep session and one big shop"
-              : `${sessions} prep sessions, a fortnight apart, with a shop before each`}
-            {days > 7
-              ? ", plus a small top-up later if any meal is made fresh rather than batched."
-              : "."}
+              ? "One prep day and one shop"
+              : `${sessions} prep days, a fortnight apart, with a shop before each`}
+            {days > 7 ? ", plus a small top-up later if any meal is made fresh." : "."}
           </p>
           {overshoot > 0 && (
             <p className="mt-1 text-sm text-ink-muted">
-              Rounded up to whole days, so {overshoot} portion{overshoot === 1 ? "" : "s"} more than
-              you asked for.
+              Rounded up to whole days, so {overshoot} {mealWord(settings, overshoot)} more than you
+              asked for.
             </p>
           )}
         </div>

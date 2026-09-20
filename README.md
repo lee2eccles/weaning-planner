@@ -1,8 +1,8 @@
 # Weaning Planner
 
-Legume-free meal planning and batch prep for the twins. Plan by days, by weeks or
-by the number of portions you need; it tells you what to cook on prep day, how to
-fill the ice cube trays, and what to buy.
+Legume-free meal planning and batch prep for the twins. Say how many meals you
+need — four lunches, or a fortnight of them — and it tells you what to cook on
+prep day, how to fill the ice cube trays, and what to buy.
 
 Built from [PRD.md](PRD.md). Additional recipes in [RECIPES-ADDITIONAL.md](RECIPES-ADDITIONAL.md).
 
@@ -19,13 +19,17 @@ Requires Node 20+.
 
 ## What it does
 
-- **Plan** — generates 1–28 days of breakfasts and lunches, guaranteed legume-free.
-  Say how much food you need in whatever unit you are thinking in — days, weeks, or
-  baby portions — and set how many babies are eating. Swap or lock any meal;
-  regenerating keeps locked meals, and asks first if it would clear your shopping ticks.
-- **Today** — the actual calendar day's meals, and what to take out of the freezer tonight.
+- **Plan** — ask for a number of meals and get that many, guaranteed legume-free.
+  One meal is one sitting for everyone eating, so "4 lunches" is four days of lunch
+  whether one baby eats them or two; portions of food are worked out from that. Swap
+  or lock any meal. Starting again reopens the question rather than silently reusing
+  last time's answer, and asks first if it would clear your shopping ticks.
+  Share the plan straight to WhatsApp.
+- **Today** — where you are in the plan, and what to take out of the freezer tonight.
+  There are no dates anywhere in the app: a plan is a sequence of meals, not a diary,
+  so it starts when you start it and moves on as you tick meals off.
 - **Shop** — one merged list per shop, grouped by aisle, tickable as you go with your place
-  remembered, staples hidden, and copyable as text. Note what happened to any line —
+  remembered, staples hidden, and shareable to WhatsApp as text. Note what happened to any line —
   out of stock, skipping it, or what you bought instead — and the note turns up on prep
   day against every recipe that needs that ingredient. Splits into a prep-day shop and a small
   week-two top-up, so you are not buying a fortnight of avocados up front.
@@ -35,7 +39,8 @@ Requires Node 20+.
   freezing wave, what to write on each bag, and the total hands-on time before you start.
   Copyable as plain text, because the kitchen is where the signal goes.
 - **Recipes** — the whole library, searchable by title, ingredient or plain words like
-  "quick" or "iron". Save the ones you cook from and keep your own notes against them:
+  "quick" or "iron"; press `/` anywhere on the page to jump to the box, Escape to clear,
+  and saved recipes sort to the top of the results. Save the ones you cook from and keep your own notes against them:
   saved recipes are nudged into future plans, sorted to the top of the swap picker, and
   your note shows on the meal card on the day you serve it. Copy a recipe or the whole
   saved list into your notes app. The search is in the URL, so a filtered view can be
@@ -77,7 +82,7 @@ lib/
     recipes.quick.ts   the fifteen-minutes-or-less library
     search.ts          recipe search — titles, ingredients and plain-language tags
   planner/
-    coverage.ts        days, weeks or portions — all three into a number of days
+    coverage.ts        meals into days, and portions of food out of meals
     constraints.ts     H1–H9 — the rules a plan may never break
     score.ts           overlap, pack efficiency, variety, leftover chains, tray fit
     generate.ts        greedy solve with randomised restarts

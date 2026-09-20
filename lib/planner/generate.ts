@@ -9,7 +9,7 @@ import { chooseBatchMultiplier, cubesFor, cubesPerPortion, cubesPerWave, DEFAULT
 import { planDays } from "./coverage";
 
 export const DEFAULT_SETTINGS: PlanSettings = {
-  coverage: { mode: "weeks", value: 2 },
+  meals: 14,
   slots: ["lunch"],
   prepDayIndex: 6,
   ageBandMonths: 9,
@@ -293,27 +293,25 @@ export interface GenerateOptions {
   seed?: number;
   /** Keep a plan's identity across a swap, so shopping ticks are not lost. */
   planId?: string;
-  /** ISO date (yyyy-mm-dd) of day 1. Defaults to today. */
-  startDate?: string;
   /** Recipe ids to lean towards — the parent's saved list. */
   preferred?: string[];
 }
 
-/** Local calendar date as yyyy-mm-dd — not UTC, which shifts the day boundary. */
-export function todayIso(d: Date = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-/** Which day of the plan today is, or null if today falls outside it. */
-export function currentDayIndex(plan: Plan, now: Date = new Date()): number | null {
-  if (!plan.startDate) return null;
-  const [y, m, d] = plan.startDate.split("-").map(Number);
-  const start = new Date(y, m - 1, d);
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const diff = Math.round((today.getTime() - start.getTime()) / 86400000);
+/**
+ * Which day of the plan you are on.
+ *
+ * Deliberately not a calendar lookup. A plan is a sequence of meals, not a
+ * diary: it might be started on the Thursday it was made or the Sunday after,
+ * and a four-lunch plan is not "the next four days". So the current day is the
+ * first one with a meal still to eat, and it advances as meals are ticked off.
+ */
+export function currentDayIndex(plan: Plan, eaten: Set<string> = new Set()): number {
   const total = planDays(plan.settings);
-  if (diff < 0 || diff >= total) return null;
-  return diff;
+  for (let day = 0; day < total; day++) {
+    const meals = plan.meals.filter((m) => m.dayIndex === day);
+    if (meals.some((m) => !eaten.has(`${m.dayIndex}:${m.slot}`))) return day;
+  }
+  return Math.max(0, total - 1);
 }
 
 export function generatePlan(options: GenerateOptions = {}): Plan {
@@ -361,7 +359,6 @@ export function generatePlan(options: GenerateOptions = {}): Plan {
   const plan: Plan = {
     id: options.planId ?? `plan-${Date.now()}`,
     createdAt: new Date().toISOString(),
-    startDate: options.startDate ?? todayIso(),
     settings,
     meals,
     prepSessions: buildPrepSessions(meals, settings),

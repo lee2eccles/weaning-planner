@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Minus, Plus, Star } from "./icons";
 import Link from "next/link";
 import type { Allergen, MealState, Recipe } from "@/lib/types";
@@ -350,13 +350,40 @@ export function SearchInput({
   describedBy?: string;
 }) {
   const id = useId();
+  const input = useRef<HTMLInputElement>(null);
+
+  /**
+   * "/" jumps to the box from anywhere on the page, and Escape clears it —
+   * the two keys that make a search box feel like a search box. Both are
+   * ignored while another field has focus, so typing a note never steals it.
+   */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const el = document.activeElement;
+      const typing =
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        (el instanceof HTMLElement && el.isContentEditable);
+
+      if (e.key === "/" && !typing) {
+        e.preventDefault();
+        input.current?.focus();
+      } else if (e.key === "Escape" && el === input.current) {
+        onChange("");
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onChange]);
   return (
     <div className="relative">
       <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-ink">
         {label}
+        <span className="ml-2 font-normal text-ink-muted max-sm:hidden">press / to jump here</span>
       </label>
       <input
         id={id}
+        ref={input}
         type="search"
         name="q"
         value={value}
@@ -405,6 +432,65 @@ export function SaveButton({
       <Star filled={saved} />
       {saved ? "Saved" : "Save"}
     </button>
+  );
+}
+
+/**
+ * Share a plan or a list the way it actually gets shared: to the other parent,
+ * on WhatsApp.
+ *
+ * The native share sheet is the right answer where it exists — it offers
+ * WhatsApp alongside Messages and everything else, and needs no permission.
+ * Desktop browsers mostly lack it, so the fallback is WhatsApp's own web
+ * handler, and if a popup blocker eats that, the clipboard.
+ */
+export function ShareButton({
+  text, title, label = "Share",
+}: {
+  text: string;
+  title: string;
+  label?: string;
+}) {
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+
+  async function share() {
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title, text });
+        return;
+      } catch (error) {
+        // A cancelled share sheet is a decision, not a failure.
+        if (error instanceof DOMException && error.name === "AbortError") return;
+      }
+    }
+
+    const opened = window.open(
+      `https://wa.me/?text=${encodeURIComponent(text)}`,
+      "_blank",
+      "noopener,noreferrer"
+    );
+    if (opened) return;
+
+    try {
+      await navigator.clipboard.writeText(text);
+      setState("copied");
+      setTimeout(() => setState("idle"), 2000);
+    } catch {
+      setState("failed");
+    }
+  }
+
+  return (
+    <span className="inline-flex flex-col items-start gap-1">
+      <Button variant="secondary" onClick={share}>
+        <span aria-live="polite">{state === "copied" ? "Copied" : label}</span>
+      </Button>
+      {state === "failed" && (
+        <span role="status" className="max-w-[16rem] text-xs text-alert">
+          Sharing was blocked. Select the text on screen to copy it by hand.
+        </span>
+      )}
+    </span>
   );
 }
 

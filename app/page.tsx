@@ -6,14 +6,11 @@ import { usePlan } from "@/components/PlanProvider";
 import { MealCard } from "@/components/MealCard";
 import { PlanSetup } from "@/components/PlanSetup";
 import { LegumeBanner, WarningList, NewAllergenNote, StaleBar } from "@/components/LegumeBanner";
-import { Button, SectionHeading, CopyButton } from "@/components/ui";
+import { Button, SectionHeading, ShareButton } from "@/components/ui";
 import { ArrowRight } from "@/components/icons";
 import { planToText } from "@/lib/shopping/merge";
 import { coverageSummary, planDays } from "@/lib/planner/coverage";
 
-const DAY_NAMES_FULL = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const DATE_FMT = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
-const WEEKDAY_FMT = new Intl.DateTimeFormat("en-GB", { weekday: "short" });
 
 export default function PlanPage() {
   const {
@@ -60,7 +57,6 @@ export default function PlanPage() {
     { length: Math.min(7, totalDays - currentWeek * 7) },
     (_, i) => currentWeek * 7 + i
   );
-  const [y, mo, d] = plan.startDate.split("-").map(Number);
   const multiSlot = plan.settings.slots.length > 1;
 
   return (
@@ -76,9 +72,16 @@ export default function PlanPage() {
           The plan
         </SectionHeading>
         <div className="no-print flex flex-wrap gap-2">
-          <CopyButton text={planToText(plan, DAY_NAMES_FULL)} label="Copy plan" />
-          <Button variant="ghost" onClick={rebuild} disabled={generating} busy={generating}>
-            {generating ? "Working…" : "Regenerate"}
+          <ShareButton text={planToText(plan)} title="Our meal plan" label="Share plan" />
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setAdjusting(true);
+              setConfirmRegen(false);
+            }}
+            aria-expanded={adjusting}
+          >
+            Start again
           </Button>
         </div>
       </div>
@@ -98,7 +101,7 @@ export default function PlanPage() {
           <div className="mt-3 flex flex-wrap gap-2">
             <Button onClick={() => setConfirmRegen(false)}>Keep this plan</Button>
             <Button variant="ghost" onClick={rebuild} disabled={generating} busy={generating}>
-              {generating ? "Working…" : "Rebuild anyway"}
+              {generating ? "Working…" : "Start again anyway"}
             </Button>
           </div>
         </div>
@@ -122,16 +125,21 @@ export default function PlanPage() {
         </Link>
       </nav>
 
-      <div className="no-print mb-5">
-        <Button variant="ghost" onClick={() => setAdjusting((a) => !a)} aria-expanded={adjusting}>
-          {adjusting ? "Hide plan size" : "Change plan size"}
-        </Button>
-        {adjusting && (
-          <div className="mt-3">
-            <PlanSetup onSubmit={rebuild} submitLabel="Rebuild the plan" busy={generating} />
+      {adjusting && (
+        <div className="no-print mb-5">
+          <h2 className="mb-1 font-semibold text-ink">How many do you need this time?</h2>
+          <p className="mb-3 text-sm text-ink-muted">
+            Starting again asks the question fresh — last time&rsquo;s number is only a starting
+            point.
+          </p>
+          <PlanSetup onSubmit={rebuild} submitLabel="Make a new plan" busy={generating} />
+          <div className="mt-2">
+            <Button variant="ghost" onClick={() => setAdjusting(false)}>
+              Keep the plan I have
+            </Button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {weekCount > 1 && (
         <div className="no-print mb-4 flex flex-wrap gap-2">
@@ -152,16 +160,14 @@ export default function PlanPage() {
           const meals = plan.meals.filter((m) => m.dayIndex === dayIndex);
           const isPrepDay = plan.prepSessions.some((s) => s.dayIndex === dayIndex);
           const isToday = todayIndex === dayIndex;
-          const date = new Date(y, mo - 1, d + dayIndex);
           return (
             <div
               key={dayIndex}
               className={`space-y-2 rounded-xl p-2 ${isToday ? "bg-blush-tint" : ""}`}
             >
               <div className="flex items-baseline gap-2 px-1">
-                <h2 className="font-semibold text-ink">{WEEKDAY_FMT.format(date)}</h2>
-                <span className="text-xs tabular-nums text-ink-muted">{DATE_FMT.format(date)}</span>
-                {isToday && <span className="text-xs font-medium text-ink">Today</span>}
+                <h2 className="font-semibold tabular-nums text-ink">Day {dayIndex + 1}</h2>
+                {isToday && <span className="text-xs font-medium text-ink">Up next</span>}
                 {isPrepDay && !isToday && <span className="text-xs font-medium text-ink">Prep day</span>}
               </div>
               {meals.length === 0 && (

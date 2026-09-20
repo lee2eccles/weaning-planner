@@ -140,23 +140,12 @@ export interface FreezerSettings {
   freezerCapacityCubes: number;
 }
 
-/**
- * How much food the plan has to cover. The same plan can be asked for in three
- * ways because people think about it in three ways: "the next fortnight", "ten
- * days until we travel", or "I have forty portions of freezer space to fill".
- * `mode` is kept rather than reduced to days so the app can show the target back
- * in the words it was set in.
- */
-export type CoverageMode = "days" | "weeks" | "portions";
-
-export interface Coverage {
-  mode: CoverageMode;
-  /** Days, weeks or baby portions, depending on `mode`. */
-  value: number;
-}
-
 export interface PlanSettings {
-  coverage: Coverage;
+  /**
+   * Meals to cover. One meal is one sitting for everyone eating, so "4" with
+   * lunch selected means four lunches — the unit people actually ask in.
+   */
+  meals: number;
   slots: MealSlot[];
   prepDayIndex: number; // 0 = Monday
   ageBandMonths: number;
@@ -230,8 +219,6 @@ export interface PrepSession {
 export interface Plan {
   id: string;
   createdAt: string;
-  /** ISO yyyy-mm-dd of day 1, so "Today" means today and not day one. */
-  startDate: string;
   settings: PlanSettings;
   meals: PlannedMeal[];
   prepSessions: PrepSession[];

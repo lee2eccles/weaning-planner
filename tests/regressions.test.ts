@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { weeks } from "@/lib/planner/coverage";
-import { generatePlan, currentDayIndex, todayIso } from "@/lib/planner/generate";
+import { generatePlan, currentDayIndex } from "@/lib/planner/generate";
 import { getRecipe } from "@/lib/data/recipes";
 import { mealStateFor } from "@/lib/planner/constraints";
 
@@ -9,7 +8,7 @@ describe("swapping a meal must not lock the whole plan", () => {
     // Regression: swapMeal passed every meal with locked:true, and the generator
     // forced locked:true on top, so one swap locked all 14 meals and turned
     // Regenerate into a verified no-op.
-    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 5 });
+    const plan = generatePlan({ settings: { meals: 14 }, restarts: 10, seed: 5 });
     expect(plan.meals.some((m) => m.locked)).toBe(false);
 
     const swapped = plan.meals.map((m, i) =>
@@ -17,7 +16,7 @@ describe("swapping a meal must not lock the whole plan", () => {
     );
     const rebuilt = generatePlan({
       settings: plan.settings, locked: swapped, restarts: 1,
-      planId: plan.id, startDate: plan.startDate,
+      planId: plan.id,
     });
 
     expect(rebuilt.meals.filter((m) => m.locked)).toHaveLength(0);
@@ -25,7 +24,7 @@ describe("swapping a meal must not lock the whole plan", () => {
   });
 
   it("still honours meals the user actually locked", () => {
-    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 6 });
+    const plan = generatePlan({ settings: { meals: 14 }, restarts: 10, seed: 6 });
     const locked = [{ ...plan.meals[2], locked: true }];
     const rebuilt = generatePlan({ settings: plan.settings, locked, restarts: 10, seed: 99 });
     const kept = rebuilt.meals.find(
@@ -38,7 +37,7 @@ describe("swapping a meal must not lock the whole plan", () => {
 
   it("recomputes how a swapped-in meal reaches the table", () => {
     // Swapping a frozen meal for a no-cook one must not leave it saying "defrost".
-    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 7 });
+    const plan = generatePlan({ settings: { meals: 14 }, restarts: 10, seed: 7 });
     const target = plan.meals.find((m) => m.state === "defrost");
     if (!target) return;
     const noCook = getRecipe("app-avocado-cream-cheese-cucumber-toast");
@@ -48,7 +47,7 @@ describe("swapping a meal must not lock the whole plan", () => {
         : m
     );
     const rebuilt = generatePlan({
-      settings: plan.settings, locked: swapped, restarts: 1, startDate: plan.startDate,
+      settings: plan.settings, locked: swapped, restarts: 1,
     });
     const after = rebuilt.meals.find(
       (m) => m.dayIndex === target.dayIndex && m.slot === target.slot
@@ -59,35 +58,32 @@ describe("swapping a meal must not lock the whole plan", () => {
   });
 });
 
-describe("Today means today", () => {
-  it("records a start date on every plan", () => {
-    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 5, seed: 1 });
-    expect(plan.startDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-    expect(plan.startDate).toBe(todayIso());
+describe("where you are in the plan", () => {
+  it("starts on day one when nothing has been eaten", () => {
+    const plan = generatePlan({ settings: { meals: 14 }, restarts: 5, seed: 1 });
+    expect(currentDayIndex(plan, new Set())).toBe(0);
   });
 
-  it("maps a date to the right day of the plan", () => {
-    const plan = generatePlan({
-      settings: { coverage: weeks(2) }, restarts: 5, seed: 1, startDate: "2026-09-21",
-    });
-    expect(currentDayIndex(plan, new Date(2026, 8, 21))).toBe(0);
-    expect(currentDayIndex(plan, new Date(2026, 8, 25))).toBe(4);
-    expect(currentDayIndex(plan, new Date(2026, 9, 4))).toBe(13);
+  it("advances as meals are ticked off, not as the calendar moves", () => {
+    // Regression in intent: the plan used to be anchored to the date it was
+    // made, so a plan built on Thursday and started on Sunday showed the wrong
+    // day — and a four-lunch plan claimed to be "the next four days".
+    const plan = generatePlan({ settings: { meals: 14 }, restarts: 5, seed: 1 });
+    const eaten = new Set<string>();
+    for (const m of plan.meals.filter((x) => x.dayIndex < 3)) {
+      eaten.add(`${m.dayIndex}:${m.slot}`);
+    }
+    expect(currentDayIndex(plan, eaten)).toBe(3);
   });
 
-  it("returns null when today falls outside the plan", () => {
-    const plan = generatePlan({
-      settings: { coverage: weeks(2) }, restarts: 5, seed: 1, startDate: "2026-09-21",
-    });
-    expect(currentDayIndex(plan, new Date(2026, 8, 20))).toBeNull();
-    expect(currentDayIndex(plan, new Date(2026, 9, 5))).toBeNull();
+  it("holds on the last day once everything is eaten", () => {
+    const plan = generatePlan({ settings: { meals: 7 }, restarts: 5, seed: 1 });
+    const eaten = new Set(plan.meals.map((m) => `${m.dayIndex}:${m.slot}`));
+    expect(currentDayIndex(plan, eaten)).toBe(6);
   });
 
-  it("uses local dates, so the day does not shift across midnight UTC", () => {
-    const plan = generatePlan({
-      settings: { coverage: weeks(1) }, restarts: 5, seed: 1, startDate: "2026-09-21",
-    });
-    expect(currentDayIndex(plan, new Date(2026, 8, 21, 23, 30))).toBe(0);
-    expect(currentDayIndex(plan, new Date(2026, 8, 22, 0, 30))).toBe(1);
+  it("carries no calendar date at all", () => {
+    const plan = generatePlan({ settings: { meals: 14 }, restarts: 5, seed: 1 });
+    expect(plan).not.toHaveProperty("startDate");
   });
 });

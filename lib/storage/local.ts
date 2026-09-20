@@ -12,7 +12,7 @@ import type { Plan, PlanSettings } from "@/lib/types";
  */
 
 const KEY = "jm-food:v1";
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 interface Stored {
   version: number;
@@ -60,25 +60,66 @@ const EMPTY: Stored = {
  * count is carried across as a coverage target expressed in weeks, which is
  * exactly what it meant.
  */
+/**
+ * v5 asks for meals rather than days, weeks or baby portions. The old target
+ * meant a real amount of food, so it is converted rather than reset — nobody
+ * should lose a plan to a unit change.
+ */
+function toMeals(settings: PlanSettings | null): PlanSettings | null {
+  if (!settings) return null;
+  const s = settings as PlanSettings & {
+    coverage?: { mode: string; value: number };
+    weeks?: number;
+  };
+  if (typeof s.meals === "number") return stripLegacy(s);
+
+  const slots = Math.max(1, s.slots?.length ?? 1);
+  const eaters = Math.max(1, s.eaters ?? 1);
+  const c = s.coverage;
+  const meals = !c
+    ? 14
+    : c.mode === "weeks"
+      ? c.value * 7 * slots
+      : c.mode === "days"
+        ? c.value * slots
+        : Math.ceil(c.value / eaters); // portions of food -> meals
+  return stripLegacy({ ...s, meals: Math.max(1, Math.round(meals)) });
+}
+
+function stripLegacy(s: PlanSettings & { coverage?: unknown; weeks?: unknown }): PlanSettings {
+  const { coverage, weeks, ...rest } = s;
+  void coverage;
+  void weeks;
+  return rest;
+}
+
 function migrate(parsed: Record<string, unknown>): Stored {
   const version = typeof parsed.version === "number" ? parsed.version : 0;
   if (version === SCHEMA_VERSION) return { ...EMPTY, ...(parsed as unknown as Stored) };
   // v2 added saved recipes and notes, v3 prep ticks and shop position, v4 the
   // shopping substitutions. All additive, so EMPTY's defaults are the whole
   // migration and nothing a parent has recorded is ever thrown away.
-  if (version === 2 || version === 3) {
-    return { ...EMPTY, ...(parsed as unknown as Stored), version: SCHEMA_VERSION };
+  if (version >= 2 && version <= 4) {
+    const carried = { ...EMPTY, ...(parsed as unknown as Stored), version: SCHEMA_VERSION };
+    return {
+      ...carried,
+      settings: toMeals(carried.settings),
+      plan: carried.plan?.settings
+        ? { ...carried.plan, settings: toMeals(carried.plan.settings)! }
+        : carried.plan,
+    };
   }
   if (version !== 1) return EMPTY;
 
   const withCoverage = (s: unknown): PlanSettings | null => {
     if (!s || typeof s !== "object") return null;
     const settings = { ...(s as PlanSettings & { weeks?: number }) };
-    if (!settings.coverage) {
-      settings.coverage = { mode: "weeks", value: Math.max(1, settings.weeks ?? 2) };
-    }
-    delete settings.weeks;
-    return settings;
+    const slots = Math.max(1, settings.slots?.length ?? 1);
+    // v1 counted whole weeks of every planned slot.
+    return stripLegacy({
+      ...settings,
+      meals: Math.max(1, Math.round((settings.weeks ?? 2) * 7 * slots)),
+    });
   };
 
   const plan = (parsed.plan as Plan | null) ?? null;

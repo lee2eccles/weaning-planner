@@ -10,7 +10,6 @@ import { getRecipe } from "@/lib/data/recipes";
 import { ALLERGEN_LABELS } from "@/lib/types";
 import { planDays } from "@/lib/planner/coverage";
 
-const DATE_FMT = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
 export default function TodayPage() {
   const { plan, ready, swapMeal, toggleLock, allergensSeen, eaten, toggleEaten, todayIndex } = usePlan();
@@ -37,10 +36,7 @@ export default function TodayPage() {
   const tomorrow = plan.meals.filter((m) => m.dayIndex === day + 1 && m.state === "defrost");
   const prepSession = plan.prepSessions.find((sn) => sn.dayIndex === day);
 
-  const [y, mo, d] = plan.startDate.split("-").map(Number);
-  const date = new Date(y, mo - 1, d + day);
   const isToday = todayIndex === day;
-  const outsidePlan = todayIndex === null;
 
   return (
     <div>
@@ -48,17 +44,12 @@ export default function TodayPage() {
       <StaleBar />
 
       <SectionHeading
-        sub={`${DATE_FMT.format(date)} · day ${day + 1} of ${totalDays}${isToday ? "" : " — not today"}`}
+        sub={`Day ${day + 1} of ${totalDays}${
+          isToday ? " — the next one with a meal to eat" : ""
+        }`}
       >
-        {isToday ? "Today" : DATE_FMT.format(date)}
+        {isToday ? "Up next" : `Day ${day + 1}`}
       </SectionHeading>
-
-      {outsidePlan && (
-        <p className="mb-4 rounded-xl border border-blush bg-blush-tint px-4 py-3 text-sm text-ink">
-          Today&rsquo;s date falls outside this plan. Showing day 1 instead — make a new plan when
-          you are ready to start the next fortnight.
-        </p>
-      )}
 
       <div className="no-print mb-5 flex flex-wrap items-center gap-2">
         <Button variant="ghost" onClick={() => setDayIndex(Math.max(0, day - 1))} disabled={day === 0}>
@@ -73,7 +64,7 @@ export default function TodayPage() {
         </Button>
         {!isToday && todayIndex !== null && (
           <Button variant="secondary" onClick={() => setDayIndex(todayIndex)}>
-            Back to today
+            Back to where you are
           </Button>
         )}
       </div>

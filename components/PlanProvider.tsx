@@ -17,7 +17,7 @@ interface PlanContextValue {
   regenerate: (settings?: Partial<PlanSettings>) => void;
   updateSettings: (patch: Partial<PlanSettings>) => void;
   swapMeal: (dayIndex: number, slot: MealSlot, recipeId: string) => void;
-  /** Which day of the plan today is, or null if today falls outside it. */
+  /** The day you are on: the first with a meal still to eat. */
   todayIndex: number | null;
   /** The plan was built with different settings to the ones now selected. */
   planIsStale: boolean;
@@ -138,7 +138,6 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       locked: kept,
       restarts: 1,
       planId: plan.id,
-      startDate: plan.startDate,
       preferred: [...saved],
     });
     setPlan(rebuilt);
@@ -226,13 +225,14 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     persist({ eaten: next });
   }
 
-  const todayIndex = plan ? currentDayIndex(plan) : null;
+  const todayIndex = plan ? currentDayIndex(plan, eaten) : null;
 
   // A plan built for lunches only is not the plan you get after ticking
   // breakfast, and saying nothing is how people conclude the app is broken.
   const planIsStale =
     !!plan &&
     (planDays(plan.settings) !== planDays(settings) ||
+      plan.settings.meals !== settings.meals ||
       plan.settings.eaters !== settings.eaters ||
       plan.settings.ageBandMonths !== settings.ageBandMonths ||
       plan.settings.slots.join() !== settings.slots.join() ||

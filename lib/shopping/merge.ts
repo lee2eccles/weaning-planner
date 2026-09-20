@@ -322,15 +322,14 @@ export function shoppingListToText(
   return `${header}\n${body.join("\n")}${notes.length ? `\n\n${notes.join("\n")}` : ""}\n`;
 }
 
-export function planToText(plan: Plan, dayNames: string[]): string {
+export function planToText(plan: Plan): string {
   const out: string[] = [`Meal plan — ${coverageSummary(plan.settings)}`, ""];
   const totalDays = planDays(plan.settings);
-  const [sy, sm, sd] = plan.startDate.split("-").map(Number);
 
   for (let d = 0; d < totalDays; d++) {
-    // The real weekday of that date. Day one is not always a Monday.
-    const date = new Date(sy, sm - 1, sd + d);
-    const label = `${dayNames[(date.getDay() + 6) % 7]} (day ${d + 1})`;
+    // Day numbers, not weekdays: a plan is a sequence of meals, and it starts
+    // whenever you start it.
+    const label = `Day ${d + 1}`;
     const dayMeals = plan.meals.filter((m) => m.dayIndex === d);
     if (dayMeals.length === 0) continue;
     out.push(label);
@@ -350,5 +349,6 @@ export function planToText(plan: Plan, dayNames: string[]): string {
     }
     out.push("");
   }
+  out.push("Legume-free — no beans, lentils, chickpeas, peas, green beans, peanuts or soya.");
   return out.join("\n");
 }

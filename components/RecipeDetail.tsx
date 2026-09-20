@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Recipe } from "@/lib/types";
-import { AllergenBadges, CopyButton, RecipeMeta, SaveButton } from "./ui";
+import { AllergenBadges, CopyButton, RecipeMeta, SaveButton, ShareButton } from "./ui";
 import { usePlan } from "./PlanProvider";
 import { recipeToText } from "@/lib/text/export";
 import { displayName } from "@/lib/data/ingredients";
@@ -116,6 +116,7 @@ export function RecipeDetail({
             title={recipe.title}
           />
           <CopyButton text={recipeToText(recipe, note, scale)} label="Copy to notes" />
+          <ShareButton text={recipeToText(recipe, note, scale)} title={recipe.title} />
         </div>
 
         {recipe.blurb && <p className="mb-3 text-sm italic text-ink-muted">{recipe.blurb}</p>}

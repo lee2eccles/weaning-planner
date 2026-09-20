@@ -89,12 +89,15 @@ function RecipeLibrary() {
 
   const shown = useMemo(() => {
     const [rule, value] = allergen.split(":");
-    return searchRecipes(library, query).filter((r) => {
+    const matched = searchRecipes(library, query).filter((r) => {
       if (!matchesFilter(r, filter, saved)) return false;
       if (rule === "with" && !r.allergens.includes(value as Allergen)) return false;
       if (rule === "without" && r.allergens.includes(value as Allergen)) return false;
       return true;
     });
+    // The ones you already cook from come first: after a few weeks the saved
+    // list is usually the answer, and scrolling past it to find it is silly.
+    return matched.sort((a, b) => Number(saved.has(b.id)) - Number(saved.has(a.id)));
   }, [library, query, filter, allergen, saved]);
 
   const savedRecipes = useMemo(
@@ -131,6 +134,7 @@ function RecipeLibrary() {
           onChange={setQuery}
           label="Search recipes"
           placeholder="mackerel, sweetcorn, quick, iron…"
+
           describedBy="recipe-count"
         />
 

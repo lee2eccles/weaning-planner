@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { usePlan } from "@/components/PlanProvider";
 import { buildShoppingLists, shoppingListToText, formatLine } from "@/lib/shopping/merge";
-import { Button, Card, CopyButton, SectionHeading, EmptyState } from "@/components/ui";
+import { Button, Card, SectionHeading, ShareButton, EmptyState } from "@/components/ui";
 import { LegumeBar, StaleBar } from "@/components/LegumeBanner";
 import { SwapNote } from "@/components/SwapNote";
 import { Chevron } from "@/components/icons";
@@ -55,9 +55,10 @@ export default function ShopPage() {
           {list.label}
         </SectionHeading>
         <div className="no-print flex flex-wrap gap-2">
-          <CopyButton
+          <ShareButton
             text={shoppingListToText(list, !hideStaples, ticked, swaps)}
-            label="Copy what is left"
+            title="Shopping list"
+            label="Share what is left"
           />
         </div>
       </div>

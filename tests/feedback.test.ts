@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { generatePlan } from "@/lib/planner/generate";
-import { weeks, days } from "@/lib/planner/coverage";
 import { buildShoppingLists, shoppingListToText, planToText } from "@/lib/shopping/merge";
 import { getRecipe, ALL_RECIPES } from "@/lib/data/recipes";
 import { cubesPerPortion, scaleIngredients, scaleQuantity, batchLabel, DEFAULT_FREEZER } from "@/lib/planner/portions";
@@ -15,19 +14,18 @@ const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Satu
  * trust in everything else on the screen.
  */
 describe("what the parent testers found", () => {
-  it("names the real weekday, not day-one-is-Monday", () => {
-    // 2026-09-20 is a Sunday.
-    const plan = generatePlan({
-      settings: { coverage: weeks(1) }, restarts: 5, seed: 1, startDate: "2026-09-20",
-    });
-    const text = planToText(plan, DAY_NAMES);
-    expect(text).toContain("Sunday (day 1)");
-    expect(text).toContain("Monday (day 2)");
-    expect(text).not.toContain("Monday (day 1)");
+  it("writes a plan in day numbers, with no calendar in it", () => {
+    const plan = generatePlan({ settings: { meals: 7 }, restarts: 5, seed: 1 });
+    const text = planToText(plan);
+    expect(text).toContain("Day 1");
+    expect(text).toContain("Day 7");
+    // No weekday names, no dates: the plan starts whenever you start it.
+    for (const day of DAY_NAMES) expect(text).not.toContain(day);
+    expect(text).not.toMatch(/\d{1,2}\/\d{1,2}\/\d{2,4}/);
   });
 
   it("tells you the days a shop actually covers", () => {
-    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 4 });
+    const plan = generatePlan({ settings: { meals: 14 }, restarts: 10, seed: 4 });
     const lists = buildShoppingLists(plan);
     const last = lists[lists.length - 1];
     const planDaysCovered = Math.max(...plan.meals.map((m) => m.dayIndex));
@@ -40,14 +38,14 @@ describe("what the parent testers found", () => {
 
   it("never labels two shopping lists the same thing", () => {
     for (const seed of [1, 2, 3]) {
-      const plan = generatePlan({ settings: { coverage: weeks(4) }, restarts: 5, seed });
+      const plan = generatePlan({ settings: { meals: 28 }, restarts: 5, seed });
       const labels = buildShoppingLists(plan).map((l) => l.label);
       expect(new Set(labels).size, labels.join(" | ")).toBe(labels.length);
     }
   });
 
   it("copies what is left, not what you started with", () => {
-    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 5 });
+    const plan = generatePlan({ settings: { meals: 14 }, restarts: 10, seed: 5 });
     const list = buildShoppingLists(plan)[0];
     const first = list.lines[0];
     const ticked = new Set([`${list.shopIndex}:${first.item}`]);
@@ -64,7 +62,7 @@ describe("what the parent testers found", () => {
   it("counts open-frozen food in portions and ice-cube food in cubes", () => {
     for (const seed of [1, 4, 9]) {
       const plan = generatePlan({
-        settings: { coverage: weeks(2), slots: ["breakfast", "lunch"] }, restarts: 20, seed,
+        settings: { meals: 28, slots: ["breakfast", "lunch"] }, restarts: 20, seed,
       });
       for (const session of plan.prepSessions) {
         for (const item of session.cook) {
@@ -91,7 +89,7 @@ describe("what the parent testers found", () => {
 
   it("gives every defrosted meal a number to take out", () => {
     const plan = generatePlan({
-      settings: { coverage: weeks(2), slots: ["breakfast", "lunch"] }, restarts: 20, seed: 3,
+      settings: { meals: 28, slots: ["breakfast", "lunch"] }, restarts: 20, seed: 3,
     });
     for (const m of plan.meals.filter((x) => x.state === "defrost")) {
       const r = getRecipe(m.recipeId);
@@ -104,7 +102,7 @@ describe("what the parent testers found", () => {
   });
 
   it("leans towards saved recipes without letting them take over", () => {
-    const settings = { coverage: weeks(2) };
+    const settings = { meals: 14 };
     const plain = generatePlan({ settings, restarts: 30, seed: 11 });
     const favourite = plain.meals[5].recipeId;
 
@@ -153,7 +151,7 @@ describe("cooking from the prep sheet", () => {
   });
 
   it("writes a prep sheet you can cook from with the app closed", () => {
-    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 7 });
+    const plan = generatePlan({ settings: { meals: 14 }, restarts: 10, seed: 7 });
     const session = plan.prepSessions[0];
     const text = prepSessionToText(session, getRecipe, cubesPerPortion(DEFAULT_FREEZER));
 
@@ -180,7 +178,7 @@ describe("cooking from the prep sheet", () => {
 });
 
 describe("what happened at the shop reaches the hob", () => {
-  const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 7 });
+  const plan = generatePlan({ settings: { meals: 14 }, restarts: 10, seed: 7 });
   const session = plan.prepSessions[0];
   const shopped = getRecipe(session.cook[0].recipeId).ingredients[0].item;
 
