@@ -76,14 +76,24 @@ function readLastFilter(): string | null {
 function RecipeLibrary() {
   const { allergensSeen, settings, saved, toggleSaved, notes, blocked, toggleBlocked } = usePlan();
   const params = useSearchParams();
-  // Six weeks in, "Saved" is the view you want; re-picking it every visit is a
-  // tax on the people who use the app most.
-  const [filter, setFilter] = useState<Filter>(() =>
-    asFilter(params.get("show") ?? readLastFilter())
-  );
+  const [filter, setFilter] = useState<Filter>(() => asFilter(params.get("show")));
   const [allergen, setAllergen] = useState<string>(() => params.get("allergen") ?? "any");
   const [query, setQuery] = useState(() => params.get("q") ?? "");
   const [open, setOpen] = useState<Recipe | null>(null);
+
+  /**
+   * Six weeks in, "Saved" is the view you want, so the last one is remembered.
+   * Restored in an effect rather than in the initial state: localStorage does
+   * not exist while the page is prerendered, and reading it during the first
+   * render makes the server and client disagree about what is on screen.
+   */
+  useEffect(() => {
+    if (params.get("show")) return;
+    const remembered = asFilter(readLastFilter());
+    if (remembered !== "all") setFilter(remembered);
+    // Only on mount: later changes are the person pressing a chip.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /**
    * A search worth sharing is a search worth having in the URL — a link to the

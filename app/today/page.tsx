@@ -19,10 +19,18 @@ export default function TodayPage() {
   } = usePlan();
   const [dayIndex, setDayIndex] = useState<number | null>(null);
 
-  // Start on the real today, not day one — and only once the plan has loaded.
+  /**
+   * Which day is on screen is decided once, when the screen opens, and after
+   * that only by the person using it. Ticking a meal off advances "up next" in
+   * the plan but never moves the page: the screen does not shift under someone
+   * who is still reading it. Every other write to `dayIndex` is a button.
+   */
   useEffect(() => {
     if (plan && dayIndex === null) setDayIndex(todayIndex ?? 0);
-  }, [plan, todayIndex, dayIndex]);
+    // `todayIndex` is deliberately not a dependency: it changes as meals are
+    // ticked off, and re-running on it is exactly the auto-advance we refuse.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [plan, dayIndex]);
 
   if (!ready) return <p className="text-ink-muted">Loading…</p>;
   if (!plan) {
@@ -34,7 +42,8 @@ export default function TodayPage() {
     );
   }
 
-  const day = dayIndex ?? todayIndex ?? 0;
+  // Before the effect lands, show day one rather than following `todayIndex`.
+  const day = dayIndex ?? 0;
   const totalDays = planDays(plan.settings);
   const meals = plan.meals.filter((m) => m.dayIndex === day);
   const tomorrow = plan.meals.filter((m) => m.dayIndex === day + 1 && m.state === "defrost");

@@ -37,17 +37,22 @@ export function MealCard({
   return (
     <div className={bare ? "p-3" : "rounded-lg border border-sage-tint bg-white p-3"}>
       {showSlot && (
-        <p className="mb-1 text-xs font-medium capitalize text-ink-muted">{meal.slot}</p>
+        <p className="mb-1 text-xs font-medium text-ink-muted">
+          {meal.slot === "lunch" ? "Lunch" : "Breakfast"}
+        </p>
       )}
 
       <div className="flex items-start justify-between gap-2">
-        <button
-          onClick={() => setOpen(true)}
-          className="-my-1 min-h-[2.75rem] min-w-0 flex-1 py-1 text-left text-[15px] font-semibold leading-snug text-ink"
-          aria-haspopup="dialog"
-        >
-          {recipe.title}
-        </button>
+        {/* A heading, so the meals of a day can be navigated as a list. */}
+        <h3 className="-my-1 min-w-0 flex-1">
+          <button
+            onClick={() => setOpen(true)}
+            className="min-h-[2.75rem] w-full py-1 text-left text-[15px] font-semibold leading-snug text-ink"
+            aria-haspopup="dialog"
+          >
+            {recipe.title}
+          </button>
+        </h3>
         {meal.locked && <Badge tone="blush">Locked</Badge>}
       </div>
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { generatePlan } from "@/lib/planner/generate";
+import { currentDayIndex, generatePlan } from "@/lib/planner/generate";
 import { buildShoppingLists, shoppingListToText, planToText } from "@/lib/shopping/merge";
 import { getRecipe, ALL_RECIPES } from "@/lib/data/recipes";
 import { cubesPerPortion, scaleIngredients, scaleQuantity, batchLabel, DEFAULT_FREEZER } from "@/lib/planner/portions";
@@ -364,5 +364,28 @@ describe("what the second round of testers found", () => {
       expect(results[0]?.title, typo).toContain("Mackerel");
     }
     expect(searchRecipes(ALL_RECIPES, "kangaroo")).toEqual([]);
+  });
+});
+
+/**
+ * The screen must never move on its own. Ticking a meal off advances where the
+ * plan is up to, but the person reading the page decides when the page changes.
+ */
+describe("nothing advances on its own", () => {
+  it("advances the plan's position without anyone pressing anything", () => {
+    const plan = generatePlan({ settings: { meals: 4 }, restarts: 5, seed: 1 });
+    expect(currentDayIndex(plan, new Set())).toBe(0);
+
+    const done = new Set(plan.meals.filter((m) => m.dayIndex === 0).map((m) => `0:${m.slot}`));
+    // The plan knows it has moved on...
+    expect(currentDayIndex(plan, done)).toBe(1);
+    // ...and still reports day 0 as the day it was, for a screen showing it.
+    expect(plan.meals.some((m) => m.dayIndex === 0)).toBe(true);
+  });
+
+  it("treats a skipped meal exactly like an eaten one for position", () => {
+    const plan = generatePlan({ settings: { meals: 4 }, restarts: 5, seed: 1 });
+    const skipped = new Set(plan.meals.filter((m) => m.dayIndex === 0).map((m) => `0:${m.slot}`));
+    expect(currentDayIndex(plan, skipped)).toBe(1);
   });
 });

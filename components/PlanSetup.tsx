@@ -9,6 +9,11 @@ import {
 import { MAX_DAYS_PER_PREP_SESSION } from "@/lib/planner/constraints";
 import type { MealSlot } from "@/lib/types";
 
+const SLOT_LABEL: Record<MealSlot, string> = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+};
+
 const SLOT_BLURB: Record<MealSlot, string> = {
   breakfast: "Adds the breakfast library, and roughly doubles the shopping.",
   lunch: "The main meal of the day at this age.",
@@ -94,8 +99,11 @@ export function PlanSetup({
                     className="mt-1 h-6 w-6 shrink-0 accent-blush-deep disabled:opacity-60"
                   />
                   <span>
-                    <span className="font-medium capitalize text-ink">{slot}</span>
+                    <span className="font-medium text-ink">{SLOT_LABEL[slot]}</span>
+                    {/* The full stop is what separates the two in a screen
+                        reader, which hears one run-on string otherwise. */}
                     <span className="block text-sm text-ink-muted">
+                      {". "}
                       {last ? "At least one meal has to stay selected." : SLOT_BLURB[slot]}
                     </span>
                   </span>
