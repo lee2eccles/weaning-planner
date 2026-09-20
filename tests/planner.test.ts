@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { weeks } from "@/lib/planner/coverage";
 import { generatePlan, ingredientEfficiency, swapOptions, DEFAULT_SETTINGS } from "@/lib/planner/generate";
 import { getRecipe } from "@/lib/data/recipes";
 import type { MealSlot } from "@/lib/types";
@@ -9,9 +10,9 @@ import { chooseBatchMultiplier, cubesPerPortion, trayFit, DEFAULT_FREEZER } from
 const WEEKS = [1, 2, 3, 4] as const;
 
 describe("H1 — no plan ever contains a legume", () => {
-  it.each(WEEKS)("holds for a %i-week plan across many seeds", (weeks) => {
+  it.each(WEEKS)("holds for a %i-week plan across many seeds", (w) => {
     for (let seed = 0; seed < 25; seed++) {
-      const plan = generatePlan({ settings: { weeks }, restarts: 5, seed });
+      const plan = generatePlan({ settings: { coverage: weeks(w) }, restarts: 5, seed });
       for (const meal of plan.meals) {
         const r = getRecipe(meal.recipeId);
         expect(r.legumeStatus).not.toBe("contains");
@@ -23,8 +24,8 @@ describe("H1 — no plan ever contains a legume", () => {
 });
 
 describe("H3/H4 — variety", () => {
-  it.each(WEEKS)("never repeats a meal on consecutive days (%i weeks)", (weeks) => {
-    const plan = generatePlan({ settings: { weeks }, restarts: 20, seed: 42 });
+  it.each(WEEKS)("never repeats a meal on consecutive days (%i weeks)", (w) => {
+    const plan = generatePlan({ settings: { coverage: weeks(w) }, restarts: 20, seed: 42 });
     for (const meal of plan.meals) {
       const yesterday = plan.meals.find(
         (m) => m.dayIndex === meal.dayIndex - 1 && m.slot === meal.slot
@@ -33,8 +34,8 @@ describe("H3/H4 — variety", () => {
     }
   });
 
-  it.each(WEEKS)("serves nothing more than twice in one week (%i weeks)", (weeks) => {
-    const plan = generatePlan({ settings: { weeks }, restarts: 20, seed: 7 });
+  it.each(WEEKS)("serves nothing more than twice in one week (%i weeks)", (w) => {
+    const plan = generatePlan({ settings: { coverage: weeks(w) }, restarts: 20, seed: 7 });
     const counts = new Map<string, number>();
     for (const m of plan.meals) {
       const key = `${Math.floor(m.dayIndex / 7)}:${m.slot}:${m.recipeId}`;
@@ -48,7 +49,7 @@ describe("H3/H4 — variety", () => {
 
 describe("H5/H6 — fridge life and freezing", () => {
   it("never serves a fridge-only recipe beyond its keeping time", () => {
-    const plan = generatePlan({ settings: { weeks: 4 }, restarts: 20, seed: 3 });
+    const plan = generatePlan({ settings: { coverage: weeks(4) }, restarts: 20, seed: 3 });
     for (const meal of plan.meals) {
       const r = getRecipe(meal.recipeId);
       const offset = meal.dayIndex - cookDayForSession(sessionForDay(meal.dayIndex));
@@ -63,7 +64,7 @@ describe("H5/H6 — fridge life and freezing", () => {
   });
 
   it("assigns a defrost cube count to every frozen cube meal", () => {
-    const plan = generatePlan({ settings: { weeks: 2 }, restarts: 10, seed: 11 });
+    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 11 });
     for (const m of plan.meals.filter((m) => m.state === "defrost")) {
       const r = getRecipe(m.recipeId);
       if (r.freezeFormat === "cube") {
@@ -84,16 +85,16 @@ describe("H5/H6 — fridge life and freezing", () => {
 
 describe("H8 — prep cadence", () => {
   it("uses one prep session for up to 2 weeks and two beyond", () => {
-    expect(generatePlan({ settings: { weeks: 1 }, restarts: 5, seed: 1 }).prepSessions).toHaveLength(1);
-    expect(generatePlan({ settings: { weeks: 2 }, restarts: 5, seed: 1 }).prepSessions).toHaveLength(1);
-    expect(generatePlan({ settings: { weeks: 3 }, restarts: 5, seed: 1 }).prepSessions).toHaveLength(2);
-    expect(generatePlan({ settings: { weeks: 4 }, restarts: 5, seed: 1 }).prepSessions).toHaveLength(2);
+    expect(generatePlan({ settings: { coverage: weeks(1) }, restarts: 5, seed: 1 }).prepSessions).toHaveLength(1);
+    expect(generatePlan({ settings: { coverage: weeks(2) }, restarts: 5, seed: 1 }).prepSessions).toHaveLength(1);
+    expect(generatePlan({ settings: { coverage: weeks(3) }, restarts: 5, seed: 1 }).prepSessions).toHaveLength(2);
+    expect(generatePlan({ settings: { coverage: weeks(4) }, restarts: 5, seed: 1 }).prepSessions).toHaveLength(2);
   });
 });
 
 describe("H9 — tray throughput", () => {
   it("never puts more trays in a wave than exist", () => {
-    const plan = generatePlan({ settings: { weeks: 4 }, restarts: 20, seed: 5 });
+    const plan = generatePlan({ settings: { coverage: weeks(4) }, restarts: 20, seed: 5 });
     for (const s of plan.prepSessions) {
       for (const w of s.waves) {
         expect(w.trays.length + w.openFreezeRecipeIds.length).toBeLessThanOrEqual(
@@ -104,7 +105,7 @@ describe("H9 — tray throughput", () => {
   });
 
   it("never puts more cubes in a tray than it holds", () => {
-    const plan = generatePlan({ settings: { weeks: 4 }, restarts: 20, seed: 6 });
+    const plan = generatePlan({ settings: { coverage: weeks(4) }, restarts: 20, seed: 6 });
     for (const s of plan.prepSessions) {
       for (const w of s.waves) {
         for (const t of w.trays) {
@@ -116,7 +117,7 @@ describe("H9 — tray throughput", () => {
   });
 
   it("keeps one recipe per tray, so every bag is a single recipe", () => {
-    const plan = generatePlan({ settings: { weeks: 2 }, restarts: 20, seed: 8 });
+    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 20, seed: 8 });
     for (const s of plan.prepSessions) {
       for (const w of s.waves) {
         for (const t of w.trays) {
@@ -152,7 +153,7 @@ describe("portion and cube maths", () => {
   });
 
   it("produces enough portions for every meal it is scheduled for", () => {
-    const plan = generatePlan({ settings: { weeks: 2 }, restarts: 20, seed: 13 });
+    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 20, seed: 13 });
     for (const s of plan.prepSessions) {
       for (const item of s.cook) {
         const mealsUsing = plan.meals.filter(
@@ -167,16 +168,16 @@ describe("portion and cube maths", () => {
 
 describe("optimisation goals", () => {
   it("fills every meal slot", () => {
-    for (const weeks of WEEKS) {
+    for (const w of WEEKS) {
       for (const slots of [["lunch"], ["breakfast", "lunch"]] as MealSlot[][]) {
-        const plan = generatePlan({ settings: { weeks, slots }, restarts: 20, seed: 21 });
-        expect(plan.meals, `${weeks}w ${slots.join("+")}`).toHaveLength(weeks * 7 * slots.length);
+        const plan = generatePlan({ settings: { coverage: weeks(w), slots }, restarts: 20, seed: 21 });
+        expect(plan.meals, `${w}w ${slots.join("+")}`).toHaveLength(w * 7 * slots.length);
       }
     }
   });
 
   it("plans lunches only when that is all that is switched on", () => {
-    const plan = generatePlan({ settings: { weeks: 2, slots: ["lunch"] }, restarts: 10, seed: 1 });
+    const plan = generatePlan({ settings: { coverage: weeks(2), slots: ["lunch"] }, restarts: 10, seed: 1 });
     expect(plan.meals.every((m) => m.slot === "lunch")).toBe(true);
     for (const m of plan.meals) {
       expect(getRecipe(m.recipeId).slots).toContain("lunch");
@@ -184,27 +185,27 @@ describe("optimisation goals", () => {
   });
 
   it("reuses ingredients — at least 35% fewer distinct than the naive sum", () => {
-    const plan = generatePlan({ settings: { weeks: 2 }, restarts: 50, seed: 2 });
+    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 50, seed: 2 });
     const eff = ingredientEfficiency(plan.meals);
     expect(eff.saved).toBeGreaterThan(0.35);
   });
 
   it("generates a 4-week plan in under a second", () => {
     const start = Date.now();
-    generatePlan({ settings: { weeks: 4 }, restarts: 200, seed: 99 });
+    generatePlan({ settings: { coverage: weeks(4) }, restarts: 200, seed: 99 });
     expect(Date.now() - start).toBeLessThan(1000);
   });
 
   it("is deterministic for a given seed", () => {
-    const a = generatePlan({ settings: { weeks: 2 }, restarts: 10, seed: 123 });
-    const b = generatePlan({ settings: { weeks: 2 }, restarts: 10, seed: 123 });
+    const a = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 123 });
+    const b = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 123 });
     expect(a.meals.map((m) => m.recipeId)).toEqual(b.meals.map((m) => m.recipeId));
   });
 });
 
 describe("manual override", () => {
   it("offers only legal swaps", () => {
-    const plan = generatePlan({ settings: { weeks: 2 }, restarts: 10, seed: 31 });
+    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 31 });
     const options = swapOptions(plan, 5, "lunch");
     expect(options.length).toBeGreaterThan(0);
     for (const r of options) {
@@ -215,9 +216,9 @@ describe("manual override", () => {
   });
 
   it("keeps locked meals exactly where they were", () => {
-    const plan = generatePlan({ settings: { weeks: 2 }, restarts: 10, seed: 41 });
+    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 41 });
     const locked = [{ ...plan.meals[4], locked: true }];
-    const regenerated = generatePlan({ settings: { weeks: 2 }, restarts: 10, seed: 77, locked });
+    const regenerated = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed: 77, locked });
     const kept = regenerated.meals.find(
       (m) => m.dayIndex === locked[0].dayIndex && m.slot === locked[0].slot
     );
@@ -231,7 +232,7 @@ describe("batch cooking vs cooking on the day", () => {
     // Regression: a 10-minute recipe scheduled on day 9 was being batched on
     // day 1 and sent "to the fridge" for eight days.
     for (let seed = 0; seed < 15; seed++) {
-      const plan = generatePlan({ settings: { weeks: 2 }, restarts: 10, seed });
+      const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 10, seed });
       for (const session of plan.prepSessions) {
         for (const item of session.cook) {
           const r = getRecipe(item.recipeId);
@@ -253,7 +254,7 @@ describe("batch cooking vs cooking on the day", () => {
   });
 
   it("lists cook-fresh meals separately rather than batching them", () => {
-    const plan = generatePlan({ settings: { weeks: 2 }, restarts: 40, seed: 3 });
+    const plan = generatePlan({ settings: { coverage: weeks(2) }, restarts: 40, seed: 3 });
     for (const session of plan.prepSessions) {
       const batchedIds = new Set(session.cook.map((c) => c.recipeId));
       for (const fresh of session.cookFresh) {

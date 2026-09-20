@@ -140,11 +140,27 @@ export interface FreezerSettings {
   freezerCapacityCubes: number;
 }
 
+/**
+ * How much food the plan has to cover. The same plan can be asked for in three
+ * ways because people think about it in three ways: "the next fortnight", "ten
+ * days until we travel", or "I have forty portions of freezer space to fill".
+ * `mode` is kept rather than reduced to days so the app can show the target back
+ * in the words it was set in.
+ */
+export type CoverageMode = "days" | "weeks" | "portions";
+
+export interface Coverage {
+  mode: CoverageMode;
+  /** Days, weeks or baby portions, depending on `mode`. */
+  value: number;
+}
+
 export interface PlanSettings {
-  weeks: number;
+  coverage: Coverage;
   slots: MealSlot[];
   prepDayIndex: number; // 0 = Monday
   ageBandMonths: number;
+  /** How many babies each meal feeds — one portion each. */
   eaters: number;
   freezer: FreezerSettings;
 }
@@ -158,6 +174,8 @@ export interface PlannedMeal {
   state: MealState;
   /** Cubes to take out the night before, when state is "defrost". */
   cubesToDefrost?: number;
+  /** Whole portions to take out, for food frozen flat rather than in cubes. */
+  portionsToDefrost?: number;
   locked: boolean;
   /** Which prep session produced this meal's food. */
   prepSessionIndex: number;
@@ -181,7 +199,14 @@ export interface CookItem {
   portionsProduced: number;
   cubesProduced: number;
   toFridgePortions: number;
+  /** Ice-cube-tray space only. Open-frozen food is counted in portions. */
   toFreezerCubes: number;
+  /**
+   * Portions frozen flat on a tray rather than in cubes — pancakes, frittata
+   * squares, muffins. Counting these as "cubes" overstated the tray work by
+   * more than double and made the freezer warning measure the wrong resource.
+   */
+  toFreezerPortions: number;
 }
 
 /** A meal cooked from scratch on its own day rather than batched on prep day. */

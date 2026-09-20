@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { MealSlot, Plan, PlanSettings } from "@/lib/types";
 import { generatePlan, DEFAULT_SETTINGS, currentDayIndex } from "@/lib/planner/generate";
+import { planDays } from "@/lib/planner/coverage";
 import { getRecipe } from "@/lib/data/recipes";
 import { load, save } from "@/lib/storage/local";
 
@@ -24,6 +25,21 @@ interface PlanContextValue {
   toggleTicked: (key: string) => void;
   toggleLock: (dayIndex: number, slot: MealSlot) => void;
   toggleEaten: (dayIndex: number, slot: MealSlot) => void;
+  /** Recipes saved to the cook-from list. */
+  saved: Set<string>;
+  toggleSaved: (recipeId: string) => void;
+  /** The parent's own notes, keyed by recipe id. */
+  notes: Record<string, string>;
+  setNote: (recipeId: string, text: string) => void;
+  /** Prep-day recipes already cooked, as "sessionIndex:recipeId". */
+  cooked: Set<string>;
+  toggleCooked: (key: string) => void;
+  /** Where you were on the Shop tab. */
+  shop: { listIndex: number; hideStaples: boolean };
+  setShop: (patch: Partial<{ listIndex: number; hideStaples: boolean }>) => void;
+  /** What you actually bought, keyed by ingredient — written in the aisle. */
+  swaps: Record<string, string>;
+  setSwap: (item: string, text: string) => void;
 }
 
 const PlanContext = createContext<PlanContextValue | null>(null);
@@ -34,6 +50,11 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   const [allergensSeen, setAllergensSeen] = useState<Set<string>>(new Set());
   const [eaten, setEaten] = useState<Set<string>>(new Set());
   const [ticked, setTicked] = useState<Set<string>>(new Set());
+  const [saved, setSaved] = useState<Set<string>>(new Set());
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const [cooked, setCooked] = useState<Set<string>>(new Set());
+  const [shop, setShopState] = useState({ listIndex: 0, hideStaples: true });
+  const [swaps, setSwaps] = useState<Record<string, string>>({});
   const [ready, setReady] = useState(false);
   const [generating, setGenerating] = useState(false);
 
@@ -44,16 +65,37 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     setAllergensSeen(new Set(stored.allergensSeen));
     setEaten(new Set(stored.eaten));
     setTicked(new Set(stored.ticked ?? []));
+    setSaved(new Set(stored.saved ?? []));
+    setNotes(stored.notes ?? {});
+    setCooked(new Set(stored.cooked ?? []));
+    setShopState(stored.shop ?? { listIndex: 0, hideStaples: true });
+    setSwaps(stored.swaps ?? {});
     setReady(true);
   }, []);
 
-  function persist(next: { plan?: Plan | null; settings?: PlanSettings; eaten?: Set<string>; allergensSeen?: Set<string>; ticked?: Set<string> }) {
+  function persist(next: {
+    plan?: Plan | null;
+    settings?: PlanSettings;
+    eaten?: Set<string>;
+    allergensSeen?: Set<string>;
+    ticked?: Set<string>;
+    saved?: Set<string>;
+    notes?: Record<string, string>;
+    cooked?: Set<string>;
+    shop?: { listIndex: number; hideStaples: boolean };
+    swaps?: Record<string, string>;
+  }) {
     save({
       ...(next.plan !== undefined ? { plan: next.plan } : {}),
       ...(next.settings ? { settings: next.settings } : {}),
       ...(next.eaten ? { eaten: [...next.eaten] } : {}),
       ...(next.allergensSeen ? { allergensSeen: [...next.allergensSeen] } : {}),
       ...(next.ticked ? { ticked: [...next.ticked] } : {}),
+      ...(next.saved ? { saved: [...next.saved] } : {}),
+      ...(next.notes ? { notes: next.notes } : {}),
+      ...(next.cooked ? { cooked: [...next.cooked] } : {}),
+      ...(next.shop ? { shop: next.shop } : {}),
+      ...(next.swaps ? { swaps: next.swaps } : {}),
     });
   }
 
@@ -63,12 +105,17 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     // Let the button's pressed state paint before the synchronous solve.
     setTimeout(() => {
       const locked = plan?.meals.filter((m) => m.locked) ?? [];
-      const next = generatePlan({ settings: nextSettings, locked });
+      const next = generatePlan({ settings: nextSettings, locked, preferred: [...saved] });
       setPlan(next);
       setSettings(nextSettings);
       setEaten(new Set());
       setTicked(new Set());
-      persist({ plan: next, settings: nextSettings, eaten: new Set(), ticked: new Set() });
+      setCooked(new Set());
+      setSwaps({});
+      persist({
+        plan: next, settings: nextSettings,
+        eaten: new Set(), ticked: new Set(), cooked: new Set(), swaps: {},
+      });
       setGenerating(false);
     }, 10);
   }
@@ -92,6 +139,7 @@ export function PlanProvider({ children }: { children: ReactNode }) {
       restarts: 1,
       planId: plan.id,
       startDate: plan.startDate,
+      preferred: [...saved],
     });
     setPlan(rebuilt);
     persist({ plan: rebuilt });
@@ -115,6 +163,49 @@ export function PlanProvider({ children }: { children: ReactNode }) {
     else next.add(key);
     setTicked(next);
     persist({ ticked: next });
+  }
+
+  function toggleSaved(recipeId: string) {
+    const next = new Set(saved);
+    if (next.has(recipeId)) next.delete(recipeId);
+    else next.add(recipeId);
+    setSaved(next);
+    persist({ saved: next });
+  }
+
+  /**
+   * An empty note is deleted rather than stored, so "has a note" stays a
+   * reliable signal on a recipe card.
+   */
+  function setNote(recipeId: string, text: string) {
+    const next = { ...notes };
+    if (text.trim() === "") delete next[recipeId];
+    else next[recipeId] = text;
+    setNotes(next);
+    persist({ notes: next });
+  }
+
+  function toggleCooked(key: string) {
+    const next = new Set(cooked);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    setCooked(next);
+    persist({ cooked: next });
+  }
+
+  function setShop(patch: Partial<{ listIndex: number; hideStaples: boolean }>) {
+    const next = { ...shop, ...patch };
+    setShopState(next);
+    persist({ shop: next });
+  }
+
+  /** An empty note is removed, so "has a note" stays a reliable signal. */
+  function setSwap(item: string, text: string) {
+    const next = { ...swaps };
+    if (text.trim() === "") delete next[item];
+    else next[item] = text.trim();
+    setSwaps(next);
+    persist({ swaps: next });
   }
 
   function toggleEaten(dayIndex: number, slot: MealSlot) {
@@ -141,19 +232,21 @@ export function PlanProvider({ children }: { children: ReactNode }) {
   // breakfast, and saying nothing is how people conclude the app is broken.
   const planIsStale =
     !!plan &&
-    (plan.settings.weeks !== settings.weeks ||
+    (planDays(plan.settings) !== planDays(settings) ||
+      plan.settings.eaters !== settings.eaters ||
       plan.settings.ageBandMonths !== settings.ageBandMonths ||
       plan.settings.slots.join() !== settings.slots.join() ||
       JSON.stringify(plan.settings.freezer) !== JSON.stringify(settings.freezer));
 
   const value = useMemo<PlanContextValue>(
     () => ({
-      plan, settings, ready, generating, allergensSeen, eaten, ticked,
+      plan, settings, ready, generating, allergensSeen, eaten, ticked, saved, notes, cooked, shop, swaps,
       todayIndex, planIsStale,
       regenerate, updateSettings, swapMeal, toggleLock, toggleEaten, toggleTicked,
+      toggleSaved, setNote, toggleCooked, setShop, setSwap,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [plan, settings, ready, generating, allergensSeen, eaten, ticked, todayIndex, planIsStale]
+    [plan, settings, ready, generating, allergensSeen, eaten, ticked, saved, notes, cooked, shop, swaps, todayIndex, planIsStale]
   );
 
   return <PlanContext.Provider value={value}>{children}</PlanContext.Provider>;

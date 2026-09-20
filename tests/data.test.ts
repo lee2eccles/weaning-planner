@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { ALL_RECIPES, PLANNABLE_RECIPES, plannableFor } from "@/lib/data/recipes";
+import { ALL_RECIPES, PLANNABLE_RECIPES, plannableFor, QUICK_MAX_MINUTES } from "@/lib/data/recipes";
+import { QUICK_RECIPES } from "@/lib/data/recipes.quick";
 import { findLegumes } from "@/lib/data/legumes";
 import { INGREDIENTS } from "@/lib/data/ingredients";
 
@@ -83,6 +84,33 @@ describe("recipe library integrity", () => {
     // 28 days, max twice per week => need at least 4 distinct per slot per week.
     expect(breakfasts.length).toBeGreaterThanOrEqual(10);
     expect(lunches.length).toBeGreaterThanOrEqual(14);
+  });
+
+  it("keeps every quick recipe inside its fifteen minutes", () => {
+    expect(QUICK_RECIPES.length).toBeGreaterThanOrEqual(10);
+    for (const r of QUICK_RECIPES) {
+      expect(r.activeMinutes, `${r.title} takes ${r.activeMinutes} min`).toBeLessThanOrEqual(
+        QUICK_MAX_MINUTES
+      );
+      expect(r.longRecipe, r.title).toBe(false);
+      expect(r.legumeStatus, r.title).toBe("safe");
+    }
+  });
+
+  it("gives a plan enough recipes that fit between naps", () => {
+    const quick = PLANNABLE_RECIPES.filter((r) => r.activeMinutes <= QUICK_MAX_MINUTES);
+    expect(quick.filter((r) => r.slots.includes("lunch")).length).toBeGreaterThanOrEqual(8);
+    expect(quick.filter((r) => r.slots.includes("breakfast")).length).toBeGreaterThanOrEqual(8);
+    // Iron is the hard nutrient in a legume-free plan; it must not be the slow half.
+    expect(quick.filter((r) => r.ironRich).length).toBeGreaterThanOrEqual(6);
+  });
+
+  it("states a plausible hands-on time for every recipe", () => {
+    for (const r of ALL_RECIPES) {
+      expect(r.activeMinutes, r.title).toBeGreaterThan(0);
+      expect(r.activeMinutes, r.title).toBeLessThanOrEqual(90);
+      if (r.noCook) expect(r.activeMinutes, `${r.title} is no-cook`).toBeLessThanOrEqual(10);
+    }
   });
 
   it("derives allergens from ingredients", () => {

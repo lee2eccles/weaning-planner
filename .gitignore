@@ -12,3 +12,6 @@ next-env.d.ts
 
 # Source photos of the cookbook — not for redistribution
 *.HEIC
+
+# Impeccable critique snapshots — local tooling state, and it records absolute paths
+.impeccable/

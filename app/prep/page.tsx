@@ -2,14 +2,71 @@
 
 import { usePlan } from "@/components/PlanProvider";
 import { getRecipe } from "@/lib/data/recipes";
-import { Badge, Card, SectionHeading, EmptyState } from "@/components/ui";
+import { Card, CopyButton, SectionHeading, EmptyState } from "@/components/ui";
+import { CookRow } from "@/components/CookRow";
 import { WarningList, LegumeBar, StaleBar } from "@/components/LegumeBanner";
 import { cubesPerPortion } from "@/lib/planner/portions";
+import type { PrepSession } from "@/lib/types";
+import type { WavePlacement } from "@/components/CookRow";
+import { prepSessionToText } from "@/lib/text/export";
 
 const WAVE_TIMING = ["morning — fill the trays", "afternoon", "overnight", "next morning"];
+const DATE_FMT = new Intl.DateTimeFormat("en-GB");
+
+/** The calendar date of a prep session, from the plan — not from right now. */
+function prepDateFor(startDate: string, dayIndex: number): Date {
+  const [y, m, d] = startDate.split("-").map(Number);
+  return new Date(y, m - 1, d + dayIndex);
+}
+
+/**
+ * Which freezing wave each recipe belongs to, and which trays it fills.
+ *
+ * The cook list used to be in solver order while the waves were a thousand
+ * pixels further down, so "which three go in first" had to be held in the head
+ * for three and a half hours — exactly the load this sheet exists to remove.
+ */
+function waveIndex(session: PrepSession): Map<string, WavePlacement> {
+  const index = new Map<string, WavePlacement>();
+  for (const wave of session.waves) {
+    for (const tray of wave.trays) {
+      const entry: WavePlacement =
+        index.get(tray.recipeId) ?? { waves: [], traysByWave: new Map<number, number[]>() };
+      if (!entry.waves.includes(wave.waveNumber)) entry.waves.push(wave.waveNumber);
+      const trays = entry.traysByWave.get(wave.waveNumber) ?? [];
+      trays.push(tray.trayNumber);
+      entry.traysByWave.set(wave.waveNumber, trays);
+      index.set(tray.recipeId, entry);
+    }
+    for (const id of wave.openFreezeRecipeIds) {
+      if (index.has(id)) continue;
+      index.set(id, { waves: [wave.waveNumber], traysByWave: new Map<number, number[]>() });
+    }
+  }
+  return index;
+}
+
+/** Hands-on minutes, scaled by batch — a 3× pan is not a 1× pan. */
+function sessionMinutes(cook: { recipeId: string; batchMultiplier: number }[]): number {
+  return Math.round(
+    cook.reduce((n, c) => {
+      const m = getRecipe(c.recipeId).activeMinutes;
+      // A bigger batch is more chopping, not proportionally more cooking.
+      return n + m * (1 + (c.batchMultiplier - 1) * 0.5);
+    }, 0)
+  );
+}
+
+function hoursAndMinutes(total: number): string {
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  if (h === 0) return `${m} minutes`;
+  if (m === 0) return `${h} hour${h === 1 ? "" : "s"}`;
+  return `${h} hour${h === 1 ? "" : "s"} ${m} minutes`;
+}
 
 export default function PrepPage() {
-  const { plan, ready } = usePlan();
+  const { plan, ready, cooked, toggleCooked, swaps } = usePlan();
 
   if (!ready) return <p className="text-ink-muted">Loading…</p>;
   if (!plan) {
@@ -38,72 +95,83 @@ export default function PrepPage() {
 
       {plan.prepSessions.map((session) => {
         const totalCubes = session.cook.reduce((n, c) => n + c.toFreezerCubes, 0);
+        const prepDate = prepDateFor(plan.startDate, session.dayIndex);
+        const waves = waveIndex(session);
+        const cookInOrder = [...session.cook].sort((a, b) => {
+          const wa = waves.get(a.recipeId)?.waves[0] ?? Infinity;
+          const wb = waves.get(b.recipeId)?.waves[0] ?? Infinity;
+          // Anything that freezes goes first, earliest wave first; fridge-only
+          // dishes come last because nothing is waiting on them.
+          return wa - wb || session.cook.indexOf(a) - session.cook.indexOf(b);
+        });
+
+        const flatPortions = session.cook.reduce((n, c) => n + c.toFreezerPortions, 0);
+        const minutes = sessionMinutes(session.cook);
+        const doneCount = session.cook.filter((c) =>
+          cooked.has(`${session.index}:${c.recipeId}`)
+        ).length;
+
         return (
           <div key={session.index} className="mb-8">
-            <h3 className="mb-1 text-lg font-semibold text-ink">
-              {plan.prepSessions.length > 1 ? `Prep session ${session.index + 1}` : "Prep day"}
-              <span className="ml-2 text-sm font-normal text-ink-muted">
-                day {session.dayIndex + 1}, covering days {session.coversDayIndices[0] + 1}–
-                {session.coversDayIndices[session.coversDayIndices.length - 1] + 1}
-              </span>
-            </h3>
-            <p className="mb-4 text-sm text-ink-muted">
-              {session.cook.length} recipes · {totalCubes} cubes to freeze · {session.waves.length} freezing
-              wave{session.waves.length === 1 ? "" : "s"}
+            <div className="mb-1 flex flex-wrap items-start justify-between gap-3">
+              <h2 className="text-lg font-semibold text-ink">
+                {plan.prepSessions.length > 1 ? `Prep session ${session.index + 1}` : "Prep day"}
+                <span className="ml-2 text-sm font-normal text-ink-muted">
+                  day {session.dayIndex + 1}, covering days {session.coversDayIndices[0] + 1}–
+                  {session.coversDayIndices[session.coversDayIndices.length - 1] + 1}
+                </span>
+              </h2>
+              <div className="no-print">
+                <CopyButton
+                  text={prepSessionToText(session, getRecipe, perPortion, swaps)}
+                  label="Copy prep sheet"
+                />
+              </div>
+            </div>
+            <p className="mb-4 text-sm tabular-nums text-ink-muted">
+              {session.cook.length} recipes · about {hoursAndMinutes(minutes)} hands-on ·{" "}
+              {totalCubes} cubes in trays
+              {flatPortions > 0 && ` · ${flatPortions} portions frozen flat`} ·{" "}
+              {session.waves.length} freezing wave{session.waves.length === 1 ? "" : "s"}
             </p>
 
             <Card className="mb-4">
-              <h4 className="mb-3 font-semibold text-ink">Cook</h4>
+              <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                <h3 className="font-semibold text-ink">Cook</h3>
+                <p className="text-sm tabular-nums text-ink-muted" aria-live="polite">
+                  {doneCount} of {session.cook.length} done
+                </p>
+              </div>
+              {session.cook.length > 0 && (
+                <div
+                  className="mb-3 h-1.5 w-full overflow-hidden rounded-full bg-sage-tint"
+                  aria-hidden="true"
+                >
+                  <div
+                    className="h-full rounded-full bg-blush-deep motion-safe:transition-[width] motion-safe:duration-200"
+                    style={{ width: `${(doneCount / session.cook.length) * 100}%` }}
+                  />
+                </div>
+              )}
+              <p className="mb-3 text-sm text-ink-muted">
+                In this order: the freezer is the bottleneck, so whatever fills wave 1 goes in
+                the pan first.
+              </p>
               <ul className="divide-y divide-sage-tint">
-                {session.cook.map((item) => {
-                  const r = getRecipe(item.recipeId);
-                  return (
-                    <li key={item.recipeId} className="py-3">
-                      <div className="flex flex-wrap items-baseline justify-between gap-2">
-                        <span className="font-medium text-ink">{r.title}</span>
-                        <Badge tone="blush">
-                          {item.batchMultiplier === 1 ? "Single batch" : `${item.batchMultiplier}× batch`}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 text-sm text-ink-muted">
-                        Makes about {item.portionsProduced} baby portions.
-                        {item.toFridgePortions > 0 && ` ${item.toFridgePortions} to the fridge.`}
-                        {item.toFreezerCubes > 0 && ` ${item.toFreezerCubes} cubes to the freezer.`}
-                        {r.freezeFormat === "openFreeze" && " Freeze flat on a lined tray, then bag."}
-                      </p>
-                      {r.freezableNote && (
-                        <p className="mt-0.5 text-xs text-alert">Only the {r.freezableNote} freezes.</p>
-                      )}
-                    </li>
-                  );
-                })}
+                {cookInOrder.map((item, i) => (
+                  <CookRow
+                    key={item.recipeId}
+                    item={item}
+                    position={i + 1}
+                    wave={waves.get(item.recipeId)}
+                    cubesPerPortion={perPortion}
+                    swaps={swaps}
+                    cooked={cooked.has(`${session.index}:${item.recipeId}`)}
+                    onToggleCooked={() => toggleCooked(`${session.index}:${item.recipeId}`)}
+                  />
+                ))}
               </ul>
             </Card>
-
-            {session.cookFresh.length > 0 && (
-              <Card className="mb-4">
-                <h4 className="mb-1 font-semibold text-ink">Make fresh on the day</h4>
-                <p className="mb-3 text-xs text-ink-muted">
-                  Quick enough to make on the morning. Not batched, not frozen — buy the
-                  ingredients, but leave these until the day.
-                </p>
-                <ul className="divide-y divide-sage-tint">
-                  {session.cookFresh.map((item) => {
-                    const r = getRecipe(item.recipeId);
-                    return (
-                      <li key={item.recipeId} className="py-2">
-                        <span className="font-medium text-ink">{r.title}</span>
-                        <span className="text-sm text-ink-muted">
-                          {" "}— day{item.dayIndices.length > 1 ? "s" : ""}{" "}
-                          {item.dayIndices.map((d) => d + 1).join(", ")}
-                          {r.activeMinutes ? ` · about ${r.activeMinutes} min` : ""}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </Card>
-            )}
 
             {session.waves.length > 1 && (
               <p className="mb-3 text-sm text-ink-muted">
@@ -115,14 +183,14 @@ export default function PrepPage() {
 
             {session.waves.map((wave) => (
               <Card key={wave.waveNumber} tone="sage" className="mb-3">
-                <h4 className="mb-2 font-semibold text-ink">
+                <h3 className="mb-2 font-semibold text-ink">
                   Wave {wave.waveNumber}
                   <span className="ml-2 text-sm font-normal text-ink-muted">
                     {WAVE_TIMING[Math.min(wave.waveNumber - 1, WAVE_TIMING.length - 1)]}
                     {wave.waveNumber > 1 && ` · pop wave ${wave.waveNumber - 1} into labelled bags first`}
                     {" · "}freeze {freezer.freezeHours} hours
                   </span>
-                </h4>
+                </h3>
                 <ul className="space-y-1.5">
                   {groupTrays(wave.trays).map((g, i) => (
                     <li key={i} className="text-sm tabular-nums text-ink">
@@ -138,9 +206,12 @@ export default function PrepPage() {
                       </span>
                     </li>
                   ))}
-                  {wave.openFreezeRecipeIds.map((id) => (
+                  {wave.openFreezeRecipeIds.map((id, i) => (
                     <li key={id} className="text-sm text-ink">
-                      <strong>Baking tray</strong> — {getRecipe(id).title}
+                      <strong>
+                        Baking tray{wave.openFreezeRecipeIds.length > 1 ? ` ${i + 1}` : ""}
+                      </strong>{" "}
+                      — {getRecipe(id).title}
                       <span className="text-ink-muted"> (freeze flat, then bag)</span>
                     </li>
                   ))}
@@ -148,15 +219,40 @@ export default function PrepPage() {
               </Card>
             ))}
 
+            {session.cookFresh.length > 0 && (
+              <Card className="mb-4">
+                <h3 className="mb-1 font-semibold text-ink">Make fresh on the day</h3>
+                <p className="mb-3 text-xs text-ink-muted">
+                  Quick enough to make on the morning. Not batched, not frozen — buy the
+                  ingredients, but leave these until the day.
+                </p>
+                <ul className="divide-y divide-sage-tint">
+                  {session.cookFresh.map((item) => {
+                    const r = getRecipe(item.recipeId);
+                    return (
+                      <li key={item.recipeId} className="py-2">
+                        <span className="font-medium text-ink">{r.title}</span>
+                        <span className="text-sm text-ink-muted">
+                          {" "}— day{new Set(item.dayIndices).size > 1 ? "s" : ""}{" "}
+                          {[...new Set(item.dayIndices)].map((d) => d + 1).join(", ")}
+                          {r.activeMinutes ? ` · about ${r.activeMinutes} min` : ""}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </Card>
+            )}
+
             <Card tone="blush">
-              <h4 className="mb-2 font-semibold text-ink">Bag labels</h4>
+              <h3 className="mb-2 font-semibold text-ink">Bag labels</h3>
               <p className="mb-3 text-xs text-ink">
                 One recipe per bag. Cubes from different recipes are indistinguishable once frozen,
                 and guessing is how a legume-free plan stops being legume-free.
               </p>
               <ul className="space-y-2">
                 {session.cook
-                  .filter((c) => c.toFreezerCubes > 0 || getRecipe(c.recipeId).freezeFormat === "openFreeze")
+                  .filter((c) => c.toFreezerCubes > 0 || c.toFreezerPortions > 0)
                   .map((c) => {
                     const r = getRecipe(c.recipeId);
                     return (
@@ -164,11 +260,11 @@ export default function PrepPage() {
                         <strong>{r.title}</strong>
                         {r.freezeFormat === "cube"
                           ? ` · ${c.toFreezerCubes} cubes · ${perPortion} cubes = 1 portion`
-                          : ` · about ${c.portionsProduced} baby portions`}
+                          : ` · ${c.toFreezerPortions} portions, frozen flat`}
                         {" · frozen "}
-                        {new Date().toLocaleDateString("en-GB")}
+                        {DATE_FMT.format(prepDate)}
                         {" · use by "}
-                        {new Date(Date.now() + 30 * 864e5).toLocaleDateString("en-GB")}
+                        {DATE_FMT.format(new Date(prepDate.getTime() + 30 * 864e5))}
                         {r.allergens.length > 0 && ` · contains ${r.allergens.join(", ")}`}
                       </li>
                     );
@@ -180,7 +276,7 @@ export default function PrepPage() {
       })}
 
       <Card className="mt-6">
-        <h3 className="mb-2 font-semibold text-ink">Freezer rules</h3>
+        <h2 className="mb-2 font-semibold text-ink">Freezer rules</h2>
         <ul className="list-disc space-y-1.5 pl-5 text-sm text-ink-muted marker:text-sage">
           <li>Cool food completely before freezing — never put warm food in a freezer.</li>
           <li>Freeze within 24 hours of cooking; use within 1 month.</li>

@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { usePlan } from "@/components/PlanProvider";
 import { MealCard } from "@/components/MealCard";
 import { Button, SectionHeading, Card, EmptyState } from "@/components/ui";
 import { LegumeBar, StaleBar } from "@/components/LegumeBanner";
 import { getRecipe } from "@/lib/data/recipes";
+import { ALLERGEN_LABELS } from "@/lib/types";
+import { planDays } from "@/lib/planner/coverage";
 
 const DATE_FMT = new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short" });
 
@@ -29,9 +32,10 @@ export default function TodayPage() {
   }
 
   const day = dayIndex ?? 0;
-  const totalDays = plan.settings.weeks * 7;
+  const totalDays = planDays(plan.settings);
   const meals = plan.meals.filter((m) => m.dayIndex === day);
   const tomorrow = plan.meals.filter((m) => m.dayIndex === day + 1 && m.state === "defrost");
+  const prepSession = plan.prepSessions.find((sn) => sn.dayIndex === day);
 
   const [y, mo, d] = plan.startDate.split("-").map(Number);
   const date = new Date(y, mo - 1, d + day);
@@ -74,13 +78,35 @@ export default function TodayPage() {
         )}
       </div>
 
+      {prepSession && (
+        <Card tone="sage" className="mb-5">
+          <h2 className="mb-1 font-semibold text-ink">This is a prep day</h2>
+          <p className="text-sm text-ink">
+            {prepSession.cook.length} recipes to batch-cook, covering days{" "}
+            {prepSession.coversDayIndices[0] + 1}–
+            {prepSession.coversDayIndices[prepSession.coversDayIndices.length - 1] + 1}.
+          </p>
+          <Link
+            href="/prep"
+            className="mt-3 inline-flex min-h-[2.75rem] items-center rounded-lg bg-blush px-4 py-2.5 text-sm font-medium text-ink hover:bg-blush-deep"
+          >
+            Open the prep sheet
+          </Link>
+        </Card>
+      )}
+
       {tomorrow.length > 0 && (
         <Card tone="blush" className="mb-5">
           <h2 className="mb-2 font-semibold text-ink">Take out of the freezer tonight</h2>
           <ul className="space-y-1">
             {tomorrow.map((m) => (
               <li key={`${m.dayIndex}:${m.slot}`} className="text-sm tabular-nums text-ink">
-                <strong>{m.cubesToDefrost ?? ""} cubes</strong> of {getRecipe(m.recipeId).title}
+                <strong>
+                  {m.cubesToDefrost
+                    ? `${m.cubesToDefrost} cubes`
+                    : `${m.portionsToDefrost ?? 1} portion${(m.portionsToDefrost ?? 1) === 1 ? "" : "s"}`}
+                </strong>{" "}
+                of {getRecipe(m.recipeId).title}
                 <span className="text-ink-muted"> — for tomorrow&rsquo;s {m.slot}</span>
               </li>
             ))}
@@ -112,7 +138,15 @@ export default function TodayPage() {
                   onChange={() => toggleEaten(m.dayIndex, m.slot)}
                   className="h-6 w-6 shrink-0 accent-blush-deep"
                 />
-                Eaten — records any new allergens
+                <span aria-live="polite">
+                  {eaten.has(key)
+                    ? getRecipe(m.recipeId).allergens.length > 0
+                      ? `Eaten — ${getRecipe(m.recipeId)
+                          .allergens.map((a) => ALLERGEN_LABELS[a].toLowerCase())
+                          .join(", ")} recorded`
+                      : "Eaten — recorded"
+                    : "Eaten — records any new allergens"}
+                </span>
               </label>
             </div>
           );

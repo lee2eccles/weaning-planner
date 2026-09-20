@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { usePlan } from "./PlanProvider";
 import { Badge } from "./ui";
 
@@ -39,8 +40,14 @@ export function LegumeBanner() {
  * see no change, and conclude the app ignored you.
  */
 export function StaleBar() {
-  const { planIsStale, settings, plan, regenerate, generating } = usePlan();
+  const { planIsStale, settings, plan, regenerate, generating, ticked, eaten, cooked } = usePlan();
+  const [confirming, setConfirming] = useState(false);
   if (!planIsStale || !plan) return null;
+
+  // This bar sits at the top of the Shop tab, above a half-ticked list. It used
+  // to call regenerate() directly, so the biggest button on the screen wiped
+  // your trolley with no warning, in the middle of a supermarket.
+  const atRisk = ticked.size + eaten.size + cooked.size;
 
   const was = plan.settings.slots.join(" and ");
   const now = settings.slots.join(" and ");
@@ -54,13 +61,37 @@ export function StaleBar() {
       <p className="text-sm text-ink">
         This plan was built {changed}.
       </p>
-      <button
-        onClick={() => regenerate()}
-        disabled={generating}
-        className="mt-2 inline-flex min-h-[2.75rem] items-center rounded-lg bg-blush px-4 py-2.5 text-sm font-medium text-ink hover:bg-blush-deep disabled:opacity-50"
-      >
-        {generating ? "Rebuilding…" : "Rebuild the plan"}
-      </button>
+      {confirming && (
+        <p className="mt-2 text-sm text-ink">
+          Rebuilding clears {ticked.size} shopping tick{ticked.size === 1 ? "" : "s"},{" "}
+          {eaten.size} meal{eaten.size === 1 ? "" : "s"} marked eaten and {cooked.size} recipe
+          {cooked.size === 1 ? "" : "s"} ticked off on prep day. Locked meals are kept.
+        </p>
+      )}
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          onClick={() => {
+            if (atRisk > 0 && !confirming) {
+              setConfirming(true);
+              return;
+            }
+            setConfirming(false);
+            regenerate();
+          }}
+          disabled={generating}
+          className="inline-flex min-h-[2.75rem] items-center rounded-lg bg-blush px-4 py-2.5 text-sm font-medium text-ink hover:bg-blush-deep disabled:opacity-50"
+        >
+          {generating ? "Rebuilding…" : confirming ? "Rebuild anyway" : "Rebuild the plan"}
+        </button>
+        {confirming && (
+          <button
+            onClick={() => setConfirming(false)}
+            className="inline-flex min-h-[2.75rem] items-center rounded-lg border border-sage px-4 py-2.5 text-sm font-medium text-ink hover:bg-sage-tint"
+          >
+            Keep this plan
+          </button>
+        )}
+      </div>
     </div>
   );
 }

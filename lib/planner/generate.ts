@@ -6,9 +6,10 @@ import { PLANNABLE_RECIPES, getRecipe } from "@/lib/data/recipes";
 import { cookDayForSession, eligibleRecipes, isBatchCooked, mealStateFor, sessionForDay, MAX_DAYS_PER_PREP_SESSION } from "./constraints";
 import { scoreRecipe, type ScoreContext } from "./score";
 import { chooseBatchMultiplier, cubesFor, cubesPerPortion, cubesPerWave, DEFAULT_FREEZER } from "./portions";
+import { planDays } from "./coverage";
 
 export const DEFAULT_SETTINGS: PlanSettings = {
-  weeks: 2,
+  coverage: { mode: "weeks", value: 2 },
   slots: ["lunch"],
   prepDayIndex: 6,
   ageBandMonths: 9,
@@ -33,8 +34,13 @@ interface Attempt {
   gaps: number;
 }
 
-function buildAttempt(settings: PlanSettings, pool: Recipe[], rand: () => number): Attempt {
-  const totalDays = settings.weeks * 7;
+function buildAttempt(
+  settings: PlanSettings,
+  pool: Recipe[],
+  rand: () => number,
+  preferred?: Set<string>
+): Attempt {
+  const totalDays = planDays(settings);
   const meals: PlannedMeal[] = [];
   const sessionUse = new Map<number, Map<string, number>>();
   const sessionCubes = new Map<number, number>();
@@ -52,6 +58,7 @@ function buildAttempt(settings: PlanSettings, pool: Recipe[], rand: () => number
         meals, dayIndex: day, slot, settings,
         sessionUse: use,
         sessionCubes: sessionCubes.get(session)!,
+        preferred,
       };
 
       const candidates = eligibleRecipes(pool, { meals, dayIndex: day, slot, settings });
@@ -72,7 +79,9 @@ function buildAttempt(settings: PlanSettings, pool: Recipe[], rand: () => number
 
       meals.push({
         dayIndex: day, slot, recipeId: pick.r.id, state,
-        cubesToDefrost: state === "defrost" ? (cubes || undefined) : undefined,
+        cubesToDefrost: cubes || undefined,
+        portionsToDefrost:
+          state === "defrost" && pick.r.freezeFormat !== "cube" ? settings.eaters : undefined,
         locked: false, prepSessionIndex: session,
       });
 
@@ -107,7 +116,7 @@ export function ingredientEfficiency(meals: PlannedMeal[]): { distinct: number; 
 
 function buildPrepSessions(meals: PlannedMeal[], settings: PlanSettings): PrepSession[] {
   const sessions: PrepSession[] = [];
-  const totalDays = settings.weeks * 7;
+  const totalDays = planDays(settings);
   const sessionCount = Math.ceil(totalDays / MAX_DAYS_PER_PREP_SESSION);
   const perPortion = cubesPerPortion(settings.freezer);
 
@@ -147,15 +156,23 @@ function buildPrepSessions(meals: PlannedMeal[], settings: PlanSettings): PrepSe
       const batchMultiplier = chooseBatchMultiplier(r, portionsNeeded, settings.freezer);
       const portionsProduced = batchMultiplier * r.babyPortions;
       const cubesProduced = cubesFor(r, batchMultiplier);
-      const toFreezerCubes = frozenMeals * settings.eaters * perPortion;
+      const frozenPortions = frozenMeals * settings.eaters;
       const toFridgePortions = (mealCount - frozenMeals) * settings.eaters;
+
+      // Only cube-format food occupies ice cube trays. Pancakes and frittata
+      // squares are frozen flat and counted as what they are.
+      const inCubes = r.freezeFormat === "cube";
+      const toFreezerCubes = inCubes
+        ? Math.min(frozenPortions * perPortion, cubesProduced || frozenPortions * perPortion)
+        : 0;
 
       cook.push({
         recipeId, batchMultiplier,
         portionsProduced: Math.round(portionsProduced * 10) / 10,
         cubesProduced,
         toFridgePortions,
-        toFreezerCubes: Math.min(toFreezerCubes, cubesProduced || toFreezerCubes),
+        toFreezerCubes,
+        toFreezerPortions: inCubes ? 0 : frozenPortions,
       });
     }
 
@@ -247,6 +264,14 @@ function collectWarnings(plan: Plan): string[] {
       );
     }
 
+    const flatPortions = session.cook.reduce((n, c) => n + c.toFreezerPortions, 0);
+    if (flatPortions > 0 && session.waves.some((w) => w.openFreezeRecipeIds.length > 1)) {
+      warnings.push(
+        `${label}${flatPortions} portions are frozen flat on baking trays rather than in cubes, ` +
+          `and more than one shares a wave. You need the tray space and the shelf space at the same time.`
+      );
+    }
+
     const longOnes = session.cook.filter((c) => getRecipe(c.recipeId).longRecipe).length;
     if (longOnes > 3) {
       warnings.push(`${label}${longOnes} longer recipes in one session. Consider spreading them out.`);
@@ -270,6 +295,8 @@ export interface GenerateOptions {
   planId?: string;
   /** ISO date (yyyy-mm-dd) of day 1. Defaults to today. */
   startDate?: string;
+  /** Recipe ids to lean towards — the parent's saved list. */
+  preferred?: string[];
 }
 
 /** Local calendar date as yyyy-mm-dd — not UTC, which shifts the day boundary. */
@@ -284,7 +311,7 @@ export function currentDayIndex(plan: Plan, now: Date = new Date()): number | nu
   const start = new Date(y, m - 1, d);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const diff = Math.round((today.getTime() - start.getTime()) / 86400000);
-  const total = plan.settings.weeks * 7;
+  const total = planDays(plan.settings);
   if (diff < 0 || diff >= total) return null;
   return diff;
 }
@@ -295,9 +322,11 @@ export function generatePlan(options: GenerateOptions = {}): Plan {
   const restarts = options.restarts ?? 200;
   const baseSeed = options.seed ?? Math.floor(Math.random() * 1e9);
 
+  const preferred = options.preferred?.length ? new Set(options.preferred) : undefined;
+
   let best: Attempt | null = null;
   for (let i = 0; i < restarts; i++) {
-    const attempt = buildAttempt(settings, pool, mulberry32(baseSeed + i * 7919));
+    const attempt = buildAttempt(settings, pool, mulberry32(baseSeed + i * 7919), preferred);
     if (!best || attempt.score > best.score) best = attempt;
   }
 
@@ -321,6 +350,8 @@ export function generatePlan(options: GenerateOptions = {}): Plan {
         ...kept,
         state,
         cubesToDefrost: cubes,
+        portionsToDefrost:
+          state === "defrost" && r.freezeFormat !== "cube" ? settings.eaters : undefined,
         prepSessionIndex: sessionForDay(kept.dayIndex),
       });
     }
@@ -341,12 +372,26 @@ export function generatePlan(options: GenerateOptions = {}): Plan {
   return plan;
 }
 
-/** Recipes that could legally replace a given meal — for the manual swap picker. */
-export function swapOptions(plan: Plan, dayIndex: number, slot: MealSlot): Recipe[] {
+/**
+ * Recipes that could legally replace a given meal — for the manual swap picker.
+ * Saved recipes come first: after a few weeks the saved list is the answer to
+ * "what do I put here instead", and making it the top of the list is the point
+ * of having saved them.
+ */
+export function swapOptions(
+  plan: Plan,
+  dayIndex: number,
+  slot: MealSlot,
+  saved?: Set<string>
+): Recipe[] {
   const others = plan.meals.filter((m) => !(m.dayIndex === dayIndex && m.slot === slot));
-  return eligibleRecipes(PLANNABLE_RECIPES, {
+  const options = eligibleRecipes(PLANNABLE_RECIPES, {
     meals: others, dayIndex, slot, settings: plan.settings,
   });
+  if (!saved?.size) return options;
+  return [...options].sort(
+    (a, b) => Number(saved.has(b.id)) - Number(saved.has(a.id))
+  );
 }
 
-export { cubesPerWave };
+export { cubesPerWave, planDays };

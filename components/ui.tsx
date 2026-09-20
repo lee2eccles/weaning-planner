@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { Minus, Plus, Star } from "./icons";
 import Link from "next/link";
 import type { Allergen, MealState, Recipe } from "@/lib/types";
 import { ALLERGEN_LABELS } from "@/lib/types";
@@ -43,12 +44,21 @@ const STATE_LABEL: Record<MealState, string> = {
  * rendered as weighted text rather than as another pill competing with
  * "Milk" and "Fish" at identical size.
  */
-export function StateLine({ state, cubes }: { state: MealState; cubes?: number }) {
+export function StateLine({
+  state, cubes, portions,
+}: {
+  state: MealState;
+  cubes?: number;
+  /** Portions, for food frozen flat rather than in cubes. */
+  portions?: number;
+}) {
   const label =
     state === "defrost"
       ? cubes
         ? `Defrost ${cubes} cubes tonight`
-        : "Take out of the freezer"
+        : portions
+          ? `Take ${portions} portion${portions === 1 ? "" : "s"} out tonight`
+          : "Take out of the freezer"
       : STATE_LABEL[state];
   const emphatic = state === "defrost" || state === "cookToday";
   return (
@@ -101,9 +111,12 @@ export function Button({
 }) {
   const variants = {
     // Ink on blush — 7.5:1. Never white on blush, which fails AA.
-    primary: "bg-blush text-ink hover:bg-blush-deep active:bg-blush-deep disabled:opacity-50",
-    secondary: "bg-sage-tint text-ink hover:bg-sage active:bg-sage disabled:opacity-50",
-    ghost: "bg-transparent text-ink border border-sage hover:bg-sage-tint active:bg-sage disabled:opacity-50",
+    primary:
+      "bg-blush text-ink hover:bg-blush-deep active:bg-blush-deep disabled:bg-sage-tint disabled:text-ink-muted",
+    secondary:
+      "bg-sage-tint text-ink hover:bg-sage active:bg-sage disabled:bg-sage-tint disabled:text-ink-muted",
+    ghost:
+      "bg-transparent text-ink border border-sage hover:bg-sage-tint active:bg-sage disabled:border-sage-tint disabled:text-ink-muted",
   };
   return (
     <button
@@ -167,7 +180,7 @@ export function EmptyState({
 export function SectionHeading({ children, sub }: { children: React.ReactNode; sub?: string }) {
   return (
     <div className="mb-4">
-      <h2 className="text-xl font-semibold text-ink">{children}</h2>
+      <h1 className="text-xl font-semibold text-ink">{children}</h1>
       {sub && <p className="mt-1 text-sm text-ink-muted">{sub}</p>}
     </div>
   );
@@ -196,23 +209,231 @@ export function RecipeMeta({ recipe }: { recipe: Recipe }) {
   );
 }
 
+/**
+ * A pill toggle for filters. `aria-pressed` rather than a checkbox because
+ * these change what is listed immediately rather than submitting anything.
+ */
+export function Chip({
+  children, pressed, onClick, count,
+}: {
+  children: React.ReactNode;
+  pressed: boolean;
+  onClick: () => void;
+  count?: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={pressed}
+      className={`inline-flex min-h-[2.75rem] items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors duration-150 ${
+        pressed
+          ? "border-blush-deep bg-blush text-ink"
+          : "border-sage bg-white text-ink-muted hover:bg-sage-tint"
+      }`}
+    >
+      {children}
+      {count != null && (
+        <span className={`tabular-nums text-xs ${pressed ? "text-ink" : "text-ink-muted"}`}>
+          {count}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** Segmented control — one of a small set, always visible, never a dropdown. */
+export function Segmented<T extends string>({
+  label, value, options, onChange,
+}: {
+  label: string;
+  value: T;
+  options: { value: T; label: string }[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label={label}
+      className="flex max-w-full flex-wrap gap-1 rounded-lg border border-sage bg-white p-1"
+    >
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={on}
+            onClick={() => onChange(o.value)}
+            className={`min-h-[2.5rem] rounded-md px-4 text-sm font-medium transition-colors duration-150 ${
+              on ? "bg-blush text-ink" : "text-ink-muted hover:bg-sage-tint"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * Number entry with buttons either side. A tired parent should be able to add
+ * a day one-handed, but typing 21 directly still has to work.
+ */
+export function Stepper({
+  label, value, min, max, step = 1, unit, onChange, hint,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step?: number;
+  unit?: string;
+  onChange: (value: number) => void;
+  hint?: string;
+}) {
+  const clamp = (n: number) => Math.min(max, Math.max(min, n));
+  const id = useId();
+
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium text-ink">
+        {label}
+      </label>
+      <div className="mt-1.5 flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => onChange(clamp(value - step))}
+          disabled={value <= min}
+          aria-label={`Decrease ${label}`}
+          className="inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center rounded-lg border border-sage bg-white text-ink hover:bg-sage-tint disabled:border-sage-tint disabled:text-ink-muted"
+        >
+          <Minus />
+        </button>
+        <input
+          id={id}
+          type="number"
+          inputMode="numeric"
+          value={value}
+          min={min}
+          max={max}
+          step={step}
+          autoComplete="off"
+          onChange={(e) => onChange(clamp(Number(e.target.value)))}
+          className="min-h-[2.75rem] w-20 rounded-lg border border-sage bg-white px-3 py-2 text-center text-ink tabular-nums"
+        />
+        <button
+          type="button"
+          onClick={() => onChange(clamp(value + step))}
+          disabled={value >= max}
+          aria-label={`Increase ${label}`}
+          className="inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center rounded-lg border border-sage bg-white text-ink hover:bg-sage-tint disabled:border-sage-tint disabled:text-ink-muted"
+        >
+          <Plus />
+        </button>
+        {unit && <span className="text-sm text-ink-muted">{unit}</span>}
+      </div>
+      {hint && <p className="mt-1.5 text-xs text-ink-muted">{hint}</p>}
+    </div>
+  );
+}
+
+/** Search box with a clear button, for the recipe library. */
+export function SearchInput({
+  value, onChange, label, placeholder, describedBy,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  label: string;
+  placeholder?: string;
+  describedBy?: string;
+}) {
+  const id = useId();
+  return (
+    <div className="relative">
+      <label htmlFor={id} className="mb-1.5 block text-sm font-medium text-ink">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="search"
+        name="q"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        autoComplete="off"
+        spellCheck={false}
+        aria-describedby={describedBy}
+        className="min-h-[2.75rem] w-full rounded-lg border border-sage bg-white py-2 pl-4 pr-20 text-ink placeholder:text-ink-muted/70"
+      />
+      {value !== "" && (
+        <button
+          type="button"
+          onClick={() => onChange("")}
+          aria-label="Clear search"
+          className="absolute bottom-0 right-0 flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center rounded-r-lg text-sm font-medium text-ink-muted hover:text-ink"
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** Save a recipe to the list you cook from. Toggle, not a one-way action. */
+export function SaveButton({
+  saved, onToggle, title, size = "default",
+}: {
+  saved: boolean;
+  onToggle: () => void;
+  title: string;
+  size?: "default" | "compact";
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      aria-pressed={saved}
+      aria-label={saved ? `Remove ${title} from saved` : `Save ${title}`}
+      className={`inline-flex min-h-[2.75rem] shrink-0 items-center gap-1.5 rounded-lg border px-3 text-sm font-medium transition-colors duration-150 ${
+        saved
+          ? "border-blush-deep bg-blush text-ink"
+          : "border-sage bg-white text-ink-muted hover:bg-sage-tint"
+      } ${size === "compact" ? "px-2.5" : ""}`}
+    >
+      <Star filled={saved} />
+      {saved ? "Saved" : "Save"}
+    </button>
+  );
+}
+
 export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
+  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
 
   async function copy() {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      setState("copied");
+      setTimeout(() => setState("idle"), 2000);
     } catch {
-      // Clipboard blocked (insecure context, or permission denied).
-      // The text is on screen to select by hand, so fail quietly.
+      // Clipboard blocked: insecure context, or permission denied. Failing
+      // quietly meant pressing the button did nothing and said nothing.
+      setState("failed");
     }
   }
 
   return (
-    <Button variant="secondary" onClick={copy}>
-      {copied ? "Copied" : label}
-    </Button>
+    <span className="inline-flex flex-col items-start gap-1">
+      <Button variant="secondary" onClick={copy}>
+        <span aria-live="polite">{state === "copied" ? "Copied" : label}</span>
+      </Button>
+      {state === "failed" && (
+        <span role="status" className="max-w-[16rem] text-xs text-alert">
+          Your browser blocked the clipboard. Use your phone&rsquo;s share or select the text on
+          screen instead.
+        </span>
+      )}
+    </span>
   );
 }

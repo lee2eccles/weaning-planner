@@ -6,6 +6,7 @@ import { getRecipe } from "@/lib/data/recipes";
 import { swapOptions } from "@/lib/planner/generate";
 import { AllergenBadges, Badge, StateLine } from "./ui";
 import { RecipeDetail } from "./RecipeDetail";
+import { usePlan } from "./PlanProvider";
 
 export function MealCard({
   meal, plan, allergensSeen, onSwap, onToggleLock, showSlot = false,
@@ -20,7 +21,9 @@ export function MealCard({
 }) {
   const [open, setOpen] = useState(false);
   const [swapping, setSwapping] = useState(false);
+  const { saved, notes } = usePlan();
   const recipe = getRecipe(meal.recipeId);
+  const note = notes[recipe.id];
 
   return (
     <div className="rounded-lg border border-sage-tint bg-white p-3">
@@ -40,12 +43,24 @@ export function MealCard({
       </div>
 
       <div className="mt-1.5">
-        <StateLine state={meal.state} cubes={meal.cubesToDefrost} />
+        <StateLine
+          state={meal.state}
+          cubes={meal.cubesToDefrost}
+          portions={meal.portionsToDefrost}
+        />
       </div>
 
       <div className="mt-2">
         <AllergenBadges allergens={recipe.allergens} seen={allergensSeen} showNew />
       </div>
+
+      {/* What you learned last time this was served, at the moment you serve it. */}
+      {note && (
+        <p className="mt-2 rounded-lg bg-sage-tint px-3 py-2 text-xs text-ink">
+          <span className="font-medium">Your note: </span>
+          {note}
+        </p>
+      )}
 
       <div className="mt-2 flex gap-2">
         <button
@@ -69,9 +84,11 @@ export function MealCard({
       {swapping && (
         <div className="mt-2 max-h-64 overflow-y-auto rounded-lg bg-cream p-1">
           <p className="px-2 py-1.5 text-xs text-ink-muted">
-            Legume-free options that keep well enough for this day.
+            {saved.size > 0
+              ? "Your saved recipes first, then everything else that keeps well enough for this day."
+              : "Legume-free options that keep well enough for this day."}
           </p>
-          {swapOptions(plan, meal.dayIndex, meal.slot)
+          {swapOptions(plan, meal.dayIndex, meal.slot, saved)
             .filter((r) => r.id !== meal.recipeId)
             .map((r) => (
               <button
@@ -79,7 +96,9 @@ export function MealCard({
                 onClick={() => { onSwap(meal.dayIndex, meal.slot, r.id); setSwapping(false); }}
                 className="block min-h-[2.75rem] w-full rounded px-2 py-2 text-left text-sm text-ink hover:bg-sage-tint active:bg-sage"
               >
+                {saved.has(r.id) && <span aria-hidden="true">★ </span>}
                 {r.title}
+                {saved.has(r.id) && <span className="sr-only"> (saved)</span>}
               </button>
             ))}
         </div>

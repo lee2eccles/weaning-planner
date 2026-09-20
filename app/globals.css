@@ -53,11 +53,41 @@ a, button, label, input, select, [role="button"] {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* The search box carries its own Clear button; the WebKit one duplicates it. */
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/*
+  The surfaces we did not draw still carry the design: selection, the caret and
+  the scrollbar all ship with browser defaults belonging to no design system.
+*/
+::selection {
+  background: var(--color-blush-tint);
+  color: var(--color-ink);
+}
+
+input, textarea {
+  caret-color: var(--color-blush-deep);
+}
+
+* {
+  scrollbar-color: var(--color-sage) transparent;
+  scrollbar-width: thin;
+}
+
 /* Numbers that change — cube counts, portions, dates — should not jitter. */
 .tabular-nums { font-variant-numeric: tabular-nums; }
 
 h1, h2, h3 { text-wrap: balance; }
-p { text-wrap: pretty; }
+
+/*
+  A comfortable measure. The app is phone-first, where every paragraph is
+  already 45–60 characters, but the same copy ran to ~150 on a desktop.
+*/
+p, li { text-wrap: pretty; max-width: 62ch; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

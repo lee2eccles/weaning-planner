@@ -19,6 +19,12 @@ export const WEIGHTS = {
   salt: 2.0,
   freezerPressure: 4.0,
   batchPreference: 1.2,
+  /**
+   * Saved recipes are the ones the twins actually ate. Big enough to tilt a
+   * close call, deliberately too small to override variety or overlap — a plan
+   * of nothing but the same six saved meals is not what saving them meant.
+   */
+  saved: 1.6,
 };
 
 export interface ScoreContext {
@@ -30,6 +36,8 @@ export interface ScoreContext {
   sessionUse: Map<string, number>;
   /** Running cube demand for the current prep session. */
   sessionCubes: number;
+  /** Recipe ids the parent has saved — the ones known to go down well. */
+  preferred?: Set<string>;
 }
 
 function perishableWeight(item: string, perishability: number): number {
@@ -182,6 +190,7 @@ export function freezerPressure(recipe: Recipe, ctx: ScoreContext): number {
 
 export function scoreRecipe(recipe: Recipe, ctx: ScoreContext): number {
   return (
+    WEIGHTS.saved * (ctx.preferred?.has(recipe.id) ? 1 : 0) +
     WEIGHTS.overlap * ingredientOverlap(recipe, ctx) +
     WEIGHTS.pack * packEfficiency(recipe, ctx) +
     WEIGHTS.variety * varietyScore(recipe, ctx) +

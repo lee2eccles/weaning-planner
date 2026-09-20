@@ -1,21 +1,37 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Recipe } from "@/lib/types";
-import { AllergenBadges, Button, RecipeMeta } from "./ui";
+import { AllergenBadges, CopyButton, RecipeMeta, SaveButton } from "./ui";
+import { usePlan } from "./PlanProvider";
+import { recipeToText } from "@/lib/text/export";
+import { displayName } from "@/lib/data/ingredients";
+import { batchLabel, scaleIngredients } from "@/lib/planner/portions";
 
 export function RecipeDetail({
-  recipe, onClose, allergensSeen,
+  recipe, onClose, allergensSeen, scale = 1,
 }: {
   recipe: Recipe;
   onClose: () => void;
   allergensSeen?: Set<string>;
+  /** Show the quantities already multiplied for a batch cook. */
+  scale?: number;
 }) {
+  const { saved, toggleSaved, notes, setNote } = usePlan();
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const restoreTo = useRef<HTMLElement | null>(null);
   const mounted = useRef(false);
+
+  // The note is edited locally and written on blur and on close, so that a
+  // keystroke does not re-render the whole app through the plan context.
+  const [note, setNoteDraft] = useState(notes[recipe.id] ?? "");
+  const flush = useRef<() => void>(() => {});
+  flush.current = () => {
+    if (note !== (notes[recipe.id] ?? "")) setNote(recipe.id, note);
+  };
+  useEffect(() => () => flush.current(), []);
 
   useEffect(() => {
     mounted.current = true;
@@ -76,7 +92,14 @@ export function RecipeDetail({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-start justify-between gap-3">
-          <h2 className="text-xl font-semibold leading-tight text-ink">{recipe.title}</h2>
+          <h2 className="text-xl font-semibold leading-tight text-ink">
+            {recipe.title}
+            {scale !== 1 && (
+              <span className="block text-sm font-medium text-ink-muted">
+                Quantities shown for a {batchLabel(scale).toLowerCase()}
+              </span>
+            )}
+          </h2>
           <button
             ref={closeRef}
             onClick={onClose}
@@ -84,6 +107,15 @@ export function RecipeDetail({
           >
             Close
           </button>
+        </div>
+
+        <div className="no-print mb-4 flex flex-wrap gap-2">
+          <SaveButton
+            saved={saved.has(recipe.id)}
+            onToggle={() => toggleSaved(recipe.id)}
+            title={recipe.title}
+          />
+          <CopyButton text={recipeToText(recipe, note, scale)} label="Copy to notes" />
         </div>
 
         {recipe.blurb && <p className="mb-3 text-sm italic text-ink-muted">{recipe.blurb}</p>}
@@ -99,20 +131,25 @@ export function RecipeDetail({
               Ingredients
             </h3>
             <p className="mb-2 text-xs text-ink-muted">
-              Makes {recipe.babyPortions} baby portion{recipe.babyPortions === 1 ? "" : "s"}
-              {recipe.cubesYielded ? ` — about ${recipe.cubesYielded} cubes` : ""}
+              Makes {Math.round(recipe.babyPortions * scale * 10) / 10} baby portion
+              {recipe.babyPortions * scale === 1 ? "" : "s"}
+              {recipe.cubesYielded ? ` — about ${Math.round(recipe.cubesYielded * scale)} cubes` : ""}
               {recipe.feedsAdultToo ? " (plus an adult portion)" : ""}
             </p>
             <ul className="space-y-1">
-              {recipe.ingredients.map((i, idx) => (
+              {scaleIngredients(recipe, scale).map((i, idx) => (
                 <li key={idx} className="text-sm text-ink">
                   {i.quantity != null && (
                     <span className="font-medium">
                       {i.quantity}
-                      {i.unit && i.unit !== "piece" ? i.unit : ""}{" "}
+                      {i.unit && i.unit !== "piece"
+                        ? i.unit === "g" || i.unit === "ml"
+                          ? i.unit
+                          : ` ${i.unit}`
+                        : ""}{" "}
                     </span>
                   )}
-                  {i.item}
+                  {displayName(i.item)}
                   {i.note ? <span className="text-ink-muted"> — {i.note}</span> : null}
                   {i.optional ? <span className="text-ink-muted"> (optional)</span> : null}
                 </li>
@@ -147,6 +184,25 @@ export function RecipeDetail({
               </div>
             )}
           </div>
+        </div>
+
+        <div className="no-print mt-5 border-t border-sage-tint pt-4">
+          <label htmlFor="recipe-note" className="block text-sm font-semibold text-ink">
+            Your notes
+          </label>
+          <p className="mt-0.5 text-xs text-ink-muted">
+            What they actually ate, what you changed, what to double next time. Saved on this
+            device, and included when you copy the recipe.
+          </p>
+          <textarea
+            id="recipe-note"
+            value={note}
+            rows={5}
+            onChange={(e) => setNoteDraft(e.target.value)}
+            onBlur={() => flush.current()}
+            placeholder="Ate the lot. Halve the cinnamon next time…"
+            className="mt-2 min-h-[8rem] w-full rounded-lg border border-sage bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-muted/70"
+          />
         </div>
 
         <div className="mt-5 flex flex-wrap gap-2 border-t border-sage-tint pt-4 text-xs text-ink-muted">

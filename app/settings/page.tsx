@@ -2,19 +2,31 @@
 
 import { usePlan } from "@/components/PlanProvider";
 import { useState } from "react";
-import { Button, Card, SectionHeading } from "@/components/ui";
+import { Button, Card, SectionHeading, Segmented } from "@/components/ui";
+import { PlanSetup } from "@/components/PlanSetup";
 import { StaleBar } from "@/components/LegumeBanner";
 import { LEGUME_TERMS } from "@/lib/data/legumes";
-import { clear } from "@/lib/storage/local";
+import { clear, clearPlan } from "@/lib/storage/local";
 import { cubesPerPortion, cubesPerWave } from "@/lib/planner/portions";
-import type { MealSlot } from "@/lib/types";
+import { PLANNABLE_RECIPES } from "@/lib/data/recipes";
+
+/**
+ * The bands the recipe library actually distinguishes. 9 is here because it is
+ * the default: the control used to offer 6/7/10/12 against a stored value of 9,
+ * so every option rendered unselected and the screen whose job is to state what
+ * the plan assumes about the babies stated nothing.
+ */
+const AGE_BANDS = [6, 7, 9, 10, 12];
 
 export default function SettingsPage() {
   const { settings, updateSettings, ready, regenerate, generating, plan } = usePlan();
-  const [confirmClear, setConfirmClear] = useState(false);
+  const [confirmClear, setConfirmClear] = useState<null | "plan" | "everything">(null);
   if (!ready) return <p className="text-ink-muted">Loading…</p>;
 
   const f = settings.freezer;
+  const availableRecipes = PLANNABLE_RECIPES.filter(
+    (r) => r.ageBandMonths <= settings.ageBandMonths
+  ).length;
 
   function setFreezer(patch: Partial<typeof f>) {
     updateSettings({ freezer: { ...f, ...patch } });
@@ -28,13 +40,18 @@ export default function SettingsPage() {
 
       <StaleBar />
 
+      <div>
+        <h2 className="mb-3 font-semibold text-ink">Plan size</h2>
+        <PlanSetup />
+      </div>
+
       <Card>
-        <h3 className="mb-3 font-semibold text-ink">Freezer kit</h3>
+        <h2 className="mb-3 font-semibold text-ink">Freezer kit</h2>
         <div className="grid gap-4 sm:grid-cols-3">
           <label className="block">
             <span className="text-sm text-ink-muted">Trays</span>
             <input
-              name="trayCount" inputMode="numeric" type="number" min={1} max={20} value={f.trayCount}
+              name="trayCount" inputMode="numeric" type="number" autoComplete="off" min={1} max={20} value={f.trayCount}
               onChange={(e) => setFreezer({ trayCount: Math.max(1, +e.target.value) })}
               className="mt-1 min-h-[2.75rem] w-full rounded-lg border border-sage bg-white px-3 py-2 text-ink tabular-nums"
             />
@@ -42,7 +59,7 @@ export default function SettingsPage() {
           <label className="block">
             <span className="text-sm text-ink-muted">Cubes per tray</span>
             <input
-              name="cubesPerTray" inputMode="numeric" type="number" min={1} max={30} value={f.cubesPerTray}
+              name="cubesPerTray" inputMode="numeric" type="number" autoComplete="off" min={1} max={30} value={f.cubesPerTray}
               onChange={(e) => setFreezer({ cubesPerTray: Math.max(1, +e.target.value) })}
               className="mt-1 min-h-[2.75rem] w-full rounded-lg border border-sage bg-white px-3 py-2 text-ink tabular-nums"
             />
@@ -50,7 +67,7 @@ export default function SettingsPage() {
           <label className="block">
             <span className="text-sm text-ink-muted">Cube volume (ml)</span>
             <input
-              name="cubeVolumeMl" inputMode="numeric" type="number" min={5} max={120} step={5} value={f.cubeVolumeMl}
+              name="cubeVolumeMl" inputMode="numeric" type="number" autoComplete="off" min={5} max={120} step={5} value={f.cubeVolumeMl}
               onChange={(e) => setFreezer({ cubeVolumeMl: Math.max(5, +e.target.value) })}
               className="mt-1 min-h-[2.75rem] w-full rounded-lg border border-sage bg-white px-3 py-2 text-ink tabular-nums"
             />
@@ -58,7 +75,7 @@ export default function SettingsPage() {
           <label className="block">
             <span className="text-sm text-ink-muted">Hours to freeze solid</span>
             <input
-              name="freezeHours" inputMode="numeric" type="number" min={1} max={24} value={f.freezeHours}
+              name="freezeHours" inputMode="numeric" type="number" autoComplete="off" min={1} max={24} value={f.freezeHours}
               onChange={(e) => setFreezer({ freezeHours: Math.max(1, +e.target.value) })}
               className="mt-1 min-h-[2.75rem] w-full rounded-lg border border-sage bg-white px-3 py-2 text-ink tabular-nums"
             />
@@ -66,7 +83,7 @@ export default function SettingsPage() {
           <label className="block">
             <span className="text-sm text-ink-muted">Freezer capacity (cubes)</span>
             <input
-              name="freezerCapacityCubes" inputMode="numeric" type="number" min={10} max={1000} step={10} value={f.freezerCapacityCubes}
+              name="freezerCapacityCubes" inputMode="numeric" type="number" autoComplete="off" min={10} max={1000} step={10} value={f.freezerCapacityCubes}
               onChange={(e) => setFreezer({ freezerCapacityCubes: Math.max(10, +e.target.value) })}
               className="mt-1 min-h-[2.75rem] w-full rounded-lg border border-sage bg-white px-3 py-2 text-ink tabular-nums"
             />
@@ -83,64 +100,23 @@ export default function SettingsPage() {
       </Card>
 
       <Card>
-        <h3 className="mb-3 font-semibold text-ink">Which meals to plan</h3>
-        <div className="space-y-2">
-          {(["breakfast", "lunch"] as MealSlot[]).map((slot) => {
-            const on = settings.slots.includes(slot);
-            return (
-              <label key={slot} className="flex min-h-[2.75rem] cursor-pointer items-start gap-3">
-                <input
-                  type="checkbox"
-                  checked={on}
-                  onChange={() => {
-                    const next = on
-                      ? settings.slots.filter((s) => s !== slot)
-                      : ([...settings.slots, slot] as MealSlot[]);
-                    // Planning nothing is not a useful state.
-                    if (next.length === 0) return;
-                    updateSettings({
-                      slots: (["breakfast", "lunch"] as MealSlot[]).filter((s) => next.includes(s)),
-                    });
-                  }}
-                  className="mt-1 h-6 w-6 shrink-0 accent-blush-deep"
-                />
-                <span>
-                  <span className="font-medium capitalize text-ink">{slot}</span>
-                  <span className="block text-sm text-ink-muted">
-                    {slot === "breakfast"
-                      ? "Turn this on when you move off porridge — it adds 13 breakfast recipes and roughly doubles the shopping."
-                      : "Lunches only, which is what you are doing now."}
-                  </span>
-                </span>
-              </label>
-            );
-          })}
-        </div>
-        <p className="mt-3 text-xs text-ink-muted">At least one meal must stay selected.</p>
-      </Card>
-
-      <Card>
-        <h3 className="mb-3 font-semibold text-ink">Age band</h3>
-        <div className="flex flex-wrap gap-2">
-          {[6, 7, 10, 12].map((m) => (
-            <Button
-              key={m}
-              variant={settings.ageBandMonths === m ? "primary" : "ghost"}
-              onClick={() => updateSettings({ ageBandMonths: m })}
-            >
-              {m}+ months
-            </Button>
-          ))}
-        </div>
+        <h2 className="mb-3 font-semibold text-ink">Age band</h2>
+        <Segmented
+          label="Age band"
+          value={String(settings.ageBandMonths)}
+          options={AGE_BANDS.map((m) => ({ value: String(m), label: `${m}+ months` }))}
+          onChange={(v) => updateSettings({ ageBandMonths: Number(v) })}
+        />
         <p className="mt-2 text-sm text-ink-muted">
-          Recipes carry a minimum age, so raising this widens the pool. Moving up a band would mean
-          writing more recipes for it.
+          {availableRecipes} of {PLANNABLE_RECIPES.length} recipes are suitable at{" "}
+          {settings.ageBandMonths}+ months. Every recipe carries a minimum age, so a lower band
+          narrows the pool rather than widening it.
         </p>
       </Card>
 
       {plan && (
         <Card tone="blush">
-          <h3 className="mb-2 font-semibold text-ink">Apply your changes</h3>
+          <h2 className="mb-2 font-semibold text-ink">Apply your changes</h2>
           <p className="mb-3 text-sm text-ink">
             The current plan keeps its old settings until you rebuild it. Rebuilding keeps any meals
             you have locked.
@@ -152,7 +128,7 @@ export default function SettingsPage() {
       )}
 
       <Card>
-        <h3 className="mb-2 font-semibold text-ink">Safety — 6 to 9 months</h3>
+        <h2 className="mb-2 font-semibold text-ink">Safety — 6 to 9 months</h2>
         <ul className="space-y-1 text-sm text-ink-muted">
           <li><strong className="text-ink">No honey</strong> before 12 months — risk of infant botulism.</li>
           <li><strong className="text-ink">No added salt.</strong> Use homemade or low-sodium stock. Recipes with two salty components are badged &ldquo;saltier&rdquo; and never scheduled on the same day.</li>
@@ -170,7 +146,7 @@ export default function SettingsPage() {
       </Card>
 
       <Card>
-        <h3 className="mb-2 font-semibold text-ink">What counts as a legume</h3>
+        <h2 className="mb-2 font-semibold text-ink">What counts as a legume</h2>
         <p className="mb-2 text-sm text-ink-muted">
           Strict botanical exclusion — every member of the family Fabaceae, including peanuts and soya,
           which are commonly not thought of as legumes at all. {LEGUME_TERMS.length} terms are matched:
@@ -179,16 +155,41 @@ export default function SettingsPage() {
       </Card>
 
       <Card>
-        <h3 className="mb-2 font-semibold text-ink">Data</h3>
+        <h2 className="mb-2 font-semibold text-ink">Data</h2>
         <p className="mb-3 text-sm text-ink-muted">
-          Everything is stored in this browser only. It will not appear on another phone, and clearing
-          site data loses it. Use Copy on the Plan and Shop tabs to share.
+          Everything is stored in this browser only — the plan, your ticks, your saved recipes and
+          your notes. None of it appears on another phone, and clearing site data loses it. Use the
+          Copy buttons on the Plan, Shop, Prep and Recipes tabs to get things out.
         </p>
-        {confirmClear ? (
+        {confirmClear === "plan" && (
           <div className="rounded-lg border border-alert/40 bg-alert-tint p-3">
             <p className="text-sm text-ink">
-              This deletes the current plan, your shopping ticks and the record of which allergens
-              the twins have tried. It cannot be undone.
+              This deletes the current plan, your shopping ticks, your prep-day ticks and the
+              record of which allergens the twins have tried. Your saved recipes and the notes
+              you have written against them are kept.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                onClick={() => {
+                  clearPlan();
+                  window.location.href = "/";
+                }}
+              >
+                Yes, clear the plan
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirmClear(null)}>
+                Keep it
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {confirmClear === "everything" && (
+          <div className="rounded-lg border border-alert/40 bg-alert-tint p-3">
+            <p className="text-sm text-ink">
+              This deletes <strong>everything</strong> — the plan, your ticks, the allergen record,
+              and every saved recipe and note. Those notes took weeks to build up and cannot be
+              recovered. Copy your saved list from the Recipes tab first if you want to keep it.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
@@ -199,15 +200,22 @@ export default function SettingsPage() {
               >
                 Yes, delete everything
               </Button>
-              <Button variant="ghost" onClick={() => setConfirmClear(false)}>
+              <Button variant="ghost" onClick={() => setConfirmClear(null)}>
                 Keep it
               </Button>
             </div>
           </div>
-        ) : (
-          <Button variant="ghost" onClick={() => setConfirmClear(true)}>
-            Clear saved plan
-          </Button>
+        )}
+
+        {confirmClear === null && (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="ghost" onClick={() => setConfirmClear("plan")}>
+              Clear the plan
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirmClear("everything")}>
+              Delete everything
+            </Button>
+          </div>
         )}
       </Card>
     </div>

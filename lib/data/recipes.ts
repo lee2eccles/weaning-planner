@@ -1,8 +1,12 @@
 import type { MealSlot, Recipe } from "@/lib/types";
 import { CORE_RECIPES } from "./recipes.core";
 import { EXTRA_RECIPES } from "./recipes.app";
+import { QUICK_RECIPES } from "./recipes.quick";
 
-export const ALL_RECIPES: Recipe[] = [...CORE_RECIPES, ...EXTRA_RECIPES];
+export const ALL_RECIPES: Recipe[] = [...CORE_RECIPES, ...EXTRA_RECIPES, ...QUICK_RECIPES];
+
+/** Fifteen minutes hands-on or less — the ones that fit between naps. */
+export const QUICK_MAX_MINUTES = 15;
 
 /**
  * The only recipes a plan may draw from. Every recipe in the library is

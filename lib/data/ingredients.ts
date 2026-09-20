@@ -24,6 +24,16 @@ export interface IngredientMeta {
   note?: string;
   /** Plural form, for countable items on the shopping list. */
   plural?: string;
+  /**
+   * Grams in a level tablespoon, for ingredients bought by weight but cooked
+   * by the spoonful. "9 tbsp unsalted butter" is not a thing you can buy.
+   */
+  gramsPerTbsp?: number;
+  /**
+   * How the name is written on screen. Catalogue keys stay plain ASCII so that
+   * matching and merging are reliable; this is what a person should read.
+   */
+  display?: string;
 }
 
 const P = "produce" as const;
@@ -83,14 +93,14 @@ export const INGREDIENTS: Record<string, IngredientMeta> = {
 
   /* ---------- Dairy & eggs ---------- */
   "whole milk": { aisle: D, perishability: 0.75, packSize: 2000, packUnit: "ml", packLabel: "2-litre bottle of whole milk", allergens: ["milk"] },
-  "greek yoghurt": { aisle: D, perishability: 0.6, packSize: 500, packUnit: "g", packLabel: "tub of Greek yoghurt", allergens: ["milk"] },
-  "natural yoghurt": { aisle: D, perishability: 0.6, packSize: 500, packUnit: "g", packLabel: "tub of natural yoghurt", allergens: ["milk"] },
+  "greek yoghurt": { aisle: D, perishability: 0.6, packSize: 500, packUnit: "g", packLabel: "tub of Greek yoghurt", allergens: ["milk"], gramsPerTbsp: 18 },
+  "natural yoghurt": { aisle: D, perishability: 0.6, packSize: 500, packUnit: "g", packLabel: "tub of natural yoghurt", allergens: ["milk"], gramsPerTbsp: 18 },
   "cheddar": { aisle: D, perishability: 0.35, packSize: 400, packUnit: "g", packLabel: "block of cheddar", allergens: ["milk"] },
   "parmesan": { aisle: D, perishability: 0.3, packSize: 200, packUnit: "g", packLabel: "piece of parmesan", allergens: ["milk"], note: "or vegetarian hard cheese" },
-  "ricotta": { aisle: D, perishability: 0.7, packSize: 250, packUnit: "g", packLabel: "tub of ricotta", allergens: ["milk"] },
-  "cream cheese": { aisle: D, perishability: 0.55, packSize: 280, packUnit: "g", packLabel: "tub of cream cheese", allergens: ["milk"] },
-  "creme fraiche": { aisle: D, perishability: 0.7, packSize: 200, packUnit: "g", packLabel: "pot of crème fraîche", allergens: ["milk"] },
-  "unsalted butter": { aisle: D, perishability: 0.3, packSize: 250, packUnit: "g", packLabel: "pack of unsalted butter", allergens: ["milk"] },
+  "ricotta": { aisle: D, perishability: 0.7, packSize: 250, packUnit: "g", packLabel: "tub of ricotta", allergens: ["milk"], gramsPerTbsp: 15 },
+  "cream cheese": { aisle: D, perishability: 0.55, packSize: 280, packUnit: "g", packLabel: "tub of cream cheese", allergens: ["milk"], gramsPerTbsp: 15 },
+  "creme fraiche": { aisle: D, display: "crème fraîche", perishability: 0.7, packSize: 200, packUnit: "g", packLabel: "pot of crème fraîche", allergens: ["milk"], gramsPerTbsp: 15 },
+  "unsalted butter": { aisle: D, perishability: 0.3, packSize: 250, packUnit: "g", packLabel: "pack of unsalted butter", allergens: ["milk"], gramsPerTbsp: 14 },
   "egg": { aisle: D, plural: "eggs", perishability: 0.45, packSize: 6, packUnit: "piece", packLabel: "box of eggs", allergens: ["eggs"] },
 
   /* ---------- Meat & fish ---------- */
@@ -101,14 +111,15 @@ export const INGREDIENTS: Record<string, IngredientMeta> = {
   "chicken thighs": { aisle: M, plural: "chicken thighs", perishability: 0.9, packSize: 6, packUnit: "piece", packLabel: "pack of chicken thighs", note: "skinless, boneless" },
   "lamb mince": { aisle: M, perishability: 0.9, packSize: 500, packUnit: "g", packLabel: "pack of lamb mince" },
   "beef mince": { aisle: M, perishability: 0.9, packSize: 500, packUnit: "g", packLabel: "pack of beef mince" },
+  "chicken breast": { aisle: M, perishability: 0.9, packSize: 600, packUnit: "g", packLabel: "pack of chicken breasts", note: "skinless" },
 
   /* ---------- Bakery ---------- */
-  "brown bread": { aisle: B, plural: "slices of brown bread", perishability: 0.6, packSize: 16, packUnit: "slice", packLabel: "loaf of brown bread", allergens: ["gluten"] },
-  "flatbread": { aisle: B, plural: "flatbreads", perishability: 0.5, packSize: 4, packUnit: "piece", packLabel: "pack of flatbreads", allergens: ["gluten"] },
-  "breadcrumbs": { aisle: G, perishability: 0.1, packSize: 150, packUnit: "g", packLabel: "pack of breadcrumbs", allergens: ["gluten"] },
+  "brown bread": { aisle: B, plural: "slices of brown bread", perishability: 0.6, packSize: 16, packUnit: "slice", packLabel: "loaf of brown bread", allergens: ["gluten"], note: "check the label — bread, wraps and crumbs commonly contain soya lecithin or soya flour" },
+  "flatbread": { aisle: B, plural: "flatbreads", perishability: 0.5, packSize: 4, packUnit: "piece", packLabel: "pack of flatbreads", allergens: ["gluten"], note: "check the label — bread, wraps and crumbs commonly contain soya lecithin or soya flour" },
+  "breadcrumbs": { aisle: G, perishability: 0.1, packSize: 150, packUnit: "g", packLabel: "pack of breadcrumbs", allergens: ["gluten"], gramsPerTbsp: 6, note: "check the label — bread, wraps and crumbs commonly contain soya lecithin or soya flour" },
 
   /* ---------- Dry goods ---------- */
-  "porridge oats": { aisle: G, perishability: 0.05, packSize: 1000, packUnit: "g", packLabel: "bag of porridge oats", allergens: ["gluten"], note: "use certified gluten-free oats if avoiding gluten" },
+  "porridge oats": { aisle: G, perishability: 0.05, packSize: 1000, packUnit: "g", packLabel: "bag of porridge oats", allergens: ["gluten"], note: "use certified gluten-free oats if avoiding gluten", gramsPerTbsp: 9 },
   "quinoa": { aisle: G, perishability: 0.05, packSize: 500, packUnit: "g", packLabel: "bag of quinoa" },
   "jasmine rice": { aisle: G, perishability: 0.05, packSize: 500, packUnit: "g", packLabel: "bag of jasmine rice" },
   "white rice": { aisle: G, perishability: 0.05, packSize: 1000, packUnit: "g", packLabel: "bag of rice" },
@@ -120,22 +131,25 @@ export const INGREDIENTS: Record<string, IngredientMeta> = {
   "plain flour": { aisle: G, perishability: 0.05, packSize: 1500, packUnit: "g", packLabel: "bag of plain flour", allergens: ["gluten"] },
   "self-raising flour": { aisle: G, perishability: 0.05, packSize: 1500, packUnit: "g", packLabel: "bag of self-raising flour", allergens: ["gluten"] },
   "baking powder": { aisle: G, perishability: 0, packSize: 170, packUnit: "g", packLabel: "tub of baking powder" },
-  "desiccated coconut": { aisle: G, perishability: 0.05, packSize: 200, packUnit: "g", packLabel: "bag of desiccated coconut", allergens: ["treeNuts"], note: "coconut is not a UK-regulated tree nut, but flagged here for caution" },
-  "chia seeds": { aisle: G, perishability: 0.05, packSize: 200, packUnit: "g", packLabel: "bag of chia seeds" },
+  "desiccated coconut": { aisle: G, perishability: 0.05, packSize: 200, packUnit: "g", packLabel: "bag of desiccated coconut", allergens: ["treeNuts"], note: "coconut is not a UK-regulated tree nut, but flagged here for caution", gramsPerTbsp: 5 },
+  "chia seeds": { aisle: G, perishability: 0.05, packSize: 200, packUnit: "g", packLabel: "bag of chia seeds", gramsPerTbsp: 12 },
   "dried apricots": { aisle: G, perishability: 0.1, packSize: 250, packUnit: "g", packLabel: "bag of dried apricots", allergens: ["sulphites"], note: "buy sulphite-free" },
   "cashews": { aisle: G, perishability: 0.1, packSize: 200, packUnit: "g", packLabel: "bag of cashews", allergens: ["treeNuts"] },
   "blanched almonds": { aisle: G, perishability: 0.1, packSize: 200, packUnit: "g", packLabel: "bag of blanched almonds", allergens: ["treeNuts"] },
-  "almond butter": { aisle: G, perishability: 0.1, packSize: 250, packUnit: "g", packLabel: "jar of almond butter", allergens: ["treeNuts"], note: "must be smooth — no whole or chopped nuts before 5 years" },
+  "almond butter": { aisle: G, perishability: 0.1, packSize: 250, packUnit: "g", packLabel: "jar of almond butter", allergens: ["treeNuts"], note: "must be smooth — no whole or chopped nuts before 5 years", gramsPerTbsp: 16 },
 
   /* ---------- Tinned ---------- */
   "chopped tomatoes": { aisle: T, perishability: 0.05, packSize: 400, packUnit: "g", packLabel: "tin of chopped tomatoes" },
   "tinned cherry tomatoes": { aisle: T, perishability: 0.05, packSize: 400, packUnit: "g", packLabel: "tin of cherry tomatoes" },
   "passata": { aisle: T, perishability: 0.05, packSize: 500, packUnit: "g", packLabel: "carton of passata" },
-  "tomato puree": { aisle: T, perishability: 0.05, packSize: 200, packUnit: "g", packLabel: "tube of tomato purée" },
+  "tomato puree": { aisle: T, display: "tomato purée", perishability: 0.05, packSize: 200, packUnit: "g", packLabel: "tube of tomato purée", gramsPerTbsp: 15 },
   "coconut milk": { aisle: T, perishability: 0.05, packSize: 400, packUnit: "ml", packLabel: "tin of coconut milk" },
+  "tinned sardines": { aisle: T, perishability: 0.05, packSize: 120, packUnit: "g", packLabel: "tin of sardines", allergens: ["fish"], note: "in spring water, no added salt — the soft bones mash in and are worth keeping" },
+  "tinned mackerel": { aisle: T, perishability: 0.05, packSize: 125, packUnit: "g", packLabel: "tin of mackerel", allergens: ["fish"], note: "in spring water or olive oil, no added salt — never the ones in brine or sauce" },
 
   /* ---------- Frozen ---------- */
   "frozen mango": { aisle: F, perishability: 0.05, packSize: 500, packUnit: "g", packLabel: "bag of frozen mango" },
+  "frozen berries": { aisle: F, perishability: 0.05, packSize: 500, packUnit: "g", packLabel: "bag of frozen berries" },
 
   /* ---------- Herbs & spices ---------- */
   "ground cinnamon": { aisle: H, perishability: 0, packSize: 40, packUnit: "g", packLabel: "jar of ground cinnamon" },
@@ -156,11 +170,16 @@ export const INGREDIENTS: Record<string, IngredientMeta> = {
   "olive oil": { aisle: O, perishability: 0, packSize: 500, packUnit: "ml", packLabel: "bottle of olive oil" },
   "rapeseed oil": { aisle: O, perishability: 0, packSize: 500, packUnit: "ml", packLabel: "bottle of rapeseed oil" },
   "coconut oil": { aisle: O, perishability: 0, packSize: 300, packUnit: "g", packLabel: "jar of coconut oil" },
-  "vegetable stock": { aisle: O, perishability: 0.05, packSize: 1000, packUnit: "ml", packLabel: "batch of vegetable stock (1 litre)", note: "homemade or low-sodium only; shop-bought stock often contains celery" },
-  "chicken stock": { aisle: O, perishability: 0.05, packSize: 1000, packUnit: "ml", packLabel: "batch of chicken stock (1 litre)", note: "homemade or low-sodium only; shop-bought stock often contains celery" },
+  "vegetable stock": { aisle: O, perishability: 0.05, packSize: 1000, packUnit: "ml", packLabel: "batch of vegetable stock (1 litre)", note: "homemade or low-sodium only; shop-bought stock often contains celery or soya" },
+  "chicken stock": { aisle: O, perishability: 0.05, packSize: 1000, packUnit: "ml", packLabel: "batch of chicken stock (1 litre)", note: "homemade or low-sodium only; shop-bought stock often contains celery or soya" },
   "cider vinegar": { aisle: O, perishability: 0, packSize: 500, packUnit: "ml", packLabel: "bottle of cider vinegar" },
   "water": { aisle: O, perishability: 0 },
 };
+
+/** What to print for an ingredient, which is not always its catalogue key. */
+export function displayName(item: string): string {
+  return INGREDIENTS[item]?.display ?? item;
+}
 
 /** Ingredients that are always in the cupboard — near-zero weight in overlap scoring. */
 export const PANTRY_STAPLES = new Set([
