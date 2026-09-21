@@ -11,7 +11,7 @@ Built from [PRD.md](PRD.md). Additional recipes in [RECIPES-ADDITIONAL.md](RECIP
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 179 tests
+npm test         # 180 tests
 npm run build
 ```
 
@@ -96,7 +96,7 @@ lib/
   shopping/merge.ts    quantity merging and pack conversion
   text/export.ts       plain text for a notes app — a recipe, or the saved list
   storage/local.ts     localStorage, the only module that touches persistence
-tests/                 179 tests, weighted to the planner, the legume rule and past bugs
+tests/                 180 tests, weighted to the planner, the legume rule and past bugs
 ```
 
 ## Offline

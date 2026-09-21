@@ -34,7 +34,7 @@ export const CORE_RECIPES: Recipe[] = [
       "Blend the pear, cinnamon and milk together until there are no lumps left.",
       "Tip into a small pan with the cooked quinoa, put the lid on, and set it over a low heat.",
       "Cook for 8–10 minutes, stirring now and then, until it thickens to a soft spoonable porridge.",
-      "Take it off the heat and stir the almond butter through at the end.",
+      "Take it off the heat and stir the almond butter through until no streak of it is left — a stiff blob of nut butter can block an airway on its own.",
     ],
     tips: [
       "Any nut butter must be completely smooth — no whole or chopped nuts before five years.",
@@ -91,7 +91,7 @@ export const CORE_RECIPES: Recipe[] = [
       ing("brown bread", 1, "slice", "toasted, crusts off, cut into fingers"),
     ],
     method: [
-      "Warm the oil in a small non-stick pan over a medium heat. Add the tomatoes and turmeric and cook until the tomatoes collapse.",
+      "Quarter the tomatoes lengthways — halved is not enough at this age. Warm the oil in a small non-stick pan over a medium heat, add them with the turmeric, and cook until they collapse.",
       "Pour in the egg and keep it moving with a spatula until it is set all the way through — no wet or glossy patches.",
       "Let it cool to barely warm, and serve with fingers of toast.",
     ],
@@ -249,7 +249,7 @@ export const CORE_RECIPES: Recipe[] = [
       ing("cheddar", 50, "g", "grated"),
     ],
     method: [
-      "Warm the oil in a medium pan. Soften the onion and tomatoes together for 2–3 minutes.",
+      "Quarter the tomatoes lengthways. Warm the oil in a medium pan and soften them with the onion for 2–3 minutes, until the tomatoes have lost their shape.",
       "Stir in the orzo, pour over the hot stock, and simmer on a low heat for about 10 minutes until the pasta is completely soft.",
       "Beat in the cheddar off the heat until it melts into a glossy sauce.",
     ],
@@ -313,7 +313,7 @@ export const CORE_RECIPES: Recipe[] = [
       "Brown the mince in a dry pan over a medium heat, breaking it up as it colours. Lamb usually releases enough of its own fat; add a splash of oil only if it sticks.",
       "Lift the meat out with a slotted spoon and leave the fat behind.",
       "Soften the onion, sweet potato, garlic and spices in that pan until the onion is translucent and the spices smell fragrant.",
-      "Return the lamb with the tomato purée, apricots and stock. Simmer for about 10 minutes until most of the liquid has gone and the sweet potato has almost dissolved.",
+      "Chop the apricots small — dried fruit stays firm and sticky however long it cooks. Return the lamb with the tomato purée, apricots and stock, and simmer for about 10 minutes until most of the liquid has gone and the sweet potato has almost dissolved.",
       "Cover the couscous with just-boiled water, leave five minutes, then fork it through.",
     ],
     tips: [
@@ -447,7 +447,7 @@ export const CORE_RECIPES: Recipe[] = [
       "Cook the potato until completely soft — microwave it covered with a little water for 7–8 minutes, or boil it. Mash with the milk until smooth.",
       "Melt the butter in a pan and soften the shallots for 3–4 minutes without colouring them.",
       "Add the cod and cook 2–3 minutes until it turns opaque and flakes at a touch.",
-      "Stir in the spinach and sweetcorn and cook until the spinach has wilted right down.",
+      "Crush the sweetcorn with a fork, or blitz it briefly — whole kernels are a choking risk. Stir it in with the spinach and cook until the spinach has wilted right down.",
       "Fold the potato through, breaking the fish up as you go, and finish with lemon.",
     ],
     tips: ["Run a finger through the fish before serving to check for bones."],
@@ -477,7 +477,7 @@ export const CORE_RECIPES: Recipe[] = [
     ],
     method: [
       "Put the rice, ginger, garlic, spring onion and stock in a small pan and simmer on a low heat for about 20 minutes. Stir regularly — it thickens and catches easily towards the end.",
-      "Add the sweetcorn for the last 5 minutes, then fish out the ginger and garlic and throw them away.",
+      "Chop or blitz the sweetcorn — whole kernels are a choking risk — and add it for the last 5 minutes. Fish out the ginger and garlic and throw them away.",
       "Meanwhile oil a small dish, add the fish and a tablespoon of water, cover, and microwave 4–5 minutes until it flakes. Break it into pieces.",
       "Stir the vinegar through the rice, then fold the fish in.",
     ],
@@ -543,7 +543,7 @@ export const CORE_RECIPES: Recipe[] = [
     method: [
       "Heat the oven to 180°C (160°C fan, gas 4). Beat the eggs with the herbs, parmesan and pepper.",
       "In an ovenproof frying pan of about 16 × 21cm, cook the shallots gently in half the oil until soft and sweet — this takes longer than you think, about 10 minutes.",
-      "Add the paprika and garlic for a minute, then the sweetcorn.",
+      "Add the paprika and garlic for a minute, then the sweetcorn, chopped or pulsed first so that no whole kernels go in.",
       "Add the rest of the oil and the sweet potato, pour the eggs over, and stir gently over a low heat until it looks like wet scrambled egg.",
       "Finish in the oven for about 10 minutes until set firm enough to turn out. Loosen the edges, invert onto a board, and cut into 4cm squares.",
     ],

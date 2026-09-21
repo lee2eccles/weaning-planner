@@ -75,6 +75,42 @@ describe("choking guidance", () => {
     }
   });
 
+  /**
+   * The action a cook has to take, per hazard, somewhere in the method.
+   *
+   * The note on the ingredient line says what to do; this asserts the method
+   * says it too, at the step where it happens. A recipe should be followable
+   * top to bottom without having to cross-reference the ingredients for the
+   * one instruction that is about safety rather than flavour.
+   */
+  const ACTION: Record<string, RegExp> = {
+    "sweetcorn": /crush|chop|blitz|pulse|blend|purée|puree/i,
+    "cherry tomatoes": /quarter|chop|blitz|blend|purée|puree/i,
+    "strawberries": /crush|mash|quarter|chop|blend/i,
+    "blueberries": /crush|squash|halve|halved|blend/i,
+    "carrot": /grate|grated|soft|blend|blitz|mash|steam|purée|puree/i,
+    "dried apricots": /chop|blitz|blend|soak/i,
+    "cashews": /grind|ground|blitz|blend|process/i,
+    "blanched almonds": /grind|ground|blitz|blend|process/i,
+    "almond butter": /stir|ripple|thin|spread|blend|loosen/i,
+  };
+
+  it("tells the cook to do it, in the method, at the step it happens", () => {
+    const missing: string[] = [];
+    for (const r of PLANNABLE_RECIPES) {
+      const method = r.method.join(" ");
+      for (const i of r.ingredients) {
+        const action = ACTION[i.item];
+        if (!action) continue;
+        if (!action.test(method)) missing.push(`${r.title} → ${i.item}`);
+      }
+    }
+    expect(
+      missing,
+      `these use a hazard but the method never says to prepare it: ${missing.join("; ")}`
+    ).toEqual([]);
+  });
+
   it("covers the sweetcorn recipes that used to say nothing", () => {
     const corn = PLANNABLE_RECIPES.filter((r) =>
       r.ingredients.some((i) => i.item === "sweetcorn")

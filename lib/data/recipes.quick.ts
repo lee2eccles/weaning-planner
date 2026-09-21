@@ -35,7 +35,7 @@ export const QUICK_RECIPES: Recipe[] = [
       "Mash the banana to a smooth purée with a fork — no lumps, no slices.",
       "Stir it through the yoghurt with the chia seeds and cinnamon.",
       "Leave it in the fridge for at least twenty minutes, or overnight, so the chia swells and the pot thickens.",
-      "Loosen with a splash of milk if it has set too firm, and ripple the almond butter through just before serving.",
+      "Loosen with a splash of milk if it has set too firm. Thin the almond butter with a little of that milk, then ripple it through just before serving so none of it stays in a lump.",
     ],
     tips: [
       "Chia seeds must be fully soaked before serving — dry seeds swell in the mouth.",
