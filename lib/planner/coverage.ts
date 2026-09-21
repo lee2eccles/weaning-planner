@@ -20,6 +20,13 @@ export const MAX_DAYS = 28;
 export const MIN_EATERS = 1;
 export const MAX_EATERS = 8;
 
+/**
+ * The spans a parent actually asks for: a few days, a week, a fortnight, a
+ * month. Presets are held as days rather than as meals so that they survive
+ * breakfast being switched on — see `mealPresets`.
+ */
+const PRESET_DAYS = [4, 7, 14, 28];
+
 type Sized = Pick<PlanSettings, "meals" | "slots" | "eaters">;
 
 /** Meals eaten per day — one per planned slot. */
@@ -68,6 +75,30 @@ export function mealWord(settings: Pick<PlanSettings, "slots">, count = 2): stri
     return slot === "lunch" ? "lunches" : "breakfasts";
   }
   return count === 1 ? "meal" : "meals";
+}
+
+/**
+ * The shortcut sizes, in the unit the question is asked in.
+ *
+ * Every one is a whole number of days, because the planner cooks whole days:
+ * a flat list of meal counts offered "7 meals" to someone planning breakfast
+ * and lunch, highlighted it as chosen, and then planned eight — a control
+ * that contradicts its own summary a line later.
+ */
+export function mealPresets(settings: Pick<PlanSettings, "slots">): { meals: number; days: number }[] {
+  const per = slotsPerDay(settings);
+  return PRESET_DAYS.filter((days) => days <= MAX_DAYS).map((days) => ({ meals: days * per, days }));
+}
+
+/**
+ * How far one press of the stepper moves.
+ *
+ * A whole day, so the buttons can only ever land on a number the planner can
+ * deliver. Typing an odd number by hand still works, and still gets the
+ * rounding note — the difference is that the app no longer proposes one.
+ */
+export function mealStep(settings: Pick<PlanSettings, "slots">): number {
+  return slotsPerDay(settings);
 }
 
 export function daysLabel(days: number): string {

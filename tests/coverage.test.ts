@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  MAX_DAYS, clampMeals, coverageSummary, daysLabel, maxMeals, mealWord,
+  MAX_DAYS, clampMeals, coverageSummary, daysLabel, maxMeals, mealPresets, mealStep, mealWord,
   mealsOvershoot, mealsPlanned, planDays, portionsPlanned, slotsPerDay,
 } from "@/lib/planner/coverage";
 import { generatePlan, DEFAULT_SETTINGS } from "@/lib/planner/generate";
@@ -75,6 +75,39 @@ describe("asking for a number of meals", () => {
     expect(daysLabel(14)).toBe("2 weeks");
     expect(daysLabel(10)).toBe("1 week and 3 days");
     expect(daysLabel(4)).toBe("4 days");
+  });
+});
+
+describe("the sizes the card offers", () => {
+  const both = { slots: ["breakfast", "lunch"] as PlanSettings["slots"] };
+
+  it("offers the same four spans whichever meals are planned", () => {
+    expect(mealPresets({ slots: ["lunch"] }).map((p) => p.days)).toEqual([4, 7, 14, 28]);
+    expect(mealPresets(both).map((p) => p.days)).toEqual([4, 7, 14, 28]);
+  });
+
+  it("counts them in the unit the question is asked in", () => {
+    expect(mealPresets({ slots: ["lunch"] }).map((p) => p.meals)).toEqual([4, 7, 14, 28]);
+    expect(mealPresets(both).map((p) => p.meals)).toEqual([8, 14, 28, 56]);
+  });
+
+  it("never offers a size the planner would then change", () => {
+    // "7 meals" used to sit highlighted as the chosen size above a summary
+    // that said 8. Every preset is a whole number of days by construction.
+    for (const slots of [["lunch"], ["breakfast"], ["breakfast", "lunch"]] as PlanSettings["slots"][]) {
+      for (const preset of mealPresets({ slots })) {
+        const settings = { ...twins, slots, meals: preset.meals };
+        expect(mealsOvershoot(settings), `${preset.meals} across ${slots.length} slots`).toBe(0);
+        expect(mealsPlanned(settings)).toBe(preset.meals);
+        expect(planDays(settings)).toBe(preset.days);
+        expect(preset.meals).toBeLessThanOrEqual(maxMeals({ slots }));
+      }
+    }
+  });
+
+  it("steps by a whole day, so the buttons cannot round either", () => {
+    expect(mealStep({ slots: ["lunch"] })).toBe(1);
+    expect(mealStep(both)).toBe(2);
   });
 });
 

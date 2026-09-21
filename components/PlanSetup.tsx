@@ -1,10 +1,11 @@
 "use client";
 
+import { useId } from "react";
 import { usePlan } from "./PlanProvider";
 import { Button, Chip, Stepper } from "./ui";
 import {
-  MAX_EATERS, MIN_EATERS, MIN_MEALS, clampMeals, daysLabel, maxMeals, mealWord,
-  mealsOvershoot, mealsPlanned, planDays, portionsPlanned,
+  MAX_EATERS, MIN_EATERS, clampMeals, daysLabel, maxMeals, mealPresets, mealStep, mealWord,
+  mealsOvershoot, mealsPlanned, planDays, portionsPlanned, slotsPerDay,
 } from "@/lib/planner/coverage";
 import { MAX_DAYS_PER_PREP_SESSION } from "@/lib/planner/constraints";
 import type { MealSlot } from "@/lib/types";
@@ -27,6 +28,10 @@ const SLOT_BLURB: Record<MealSlot, string> = {
  * days, weeks and portions as three ways of saying the same thing, which was
  * eleven controls for one number and a summary that answered in the unit you
  * had just left.
+ *
+ * Which meals to plan comes first because it decides the unit of everything
+ * below it. Asking for the number first meant ticking breakfast relabelled a
+ * question that had already been answered, and doubled the answer with it.
  */
 export function PlanSetup({
   onSubmit, submitLabel = "Make the plan", busy = false,
@@ -36,14 +41,15 @@ export function PlanSetup({
   busy?: boolean;
 }) {
   const { settings, updateSettings } = usePlan();
+  const presetsLabelId = useId();
 
   const meals = clampMeals(settings.meals, settings);
   const days = planDays(settings);
   const overshoot = mealsOvershoot(settings);
   const sessions = Math.ceil(days / MAX_DAYS_PER_PREP_SESSION);
-  const word = mealWord(settings, meals);
+  const word = mealWord(settings, mealsPlanned(settings));
 
-  const presets = [4, 7, 14, 28].filter((n) => n <= maxMeals(settings));
+  const presets = mealPresets(settings);
 
   function setMeals(value: number) {
     updateSettings({ meals: clampMeals(value, settings) });
@@ -64,25 +70,6 @@ export function PlanSetup({
   return (
     <div className="rounded-xl border border-sage-tint bg-white p-5">
       <div className="space-y-5">
-        <Stepper
-          label={`How many ${mealWord(settings, 2)} do you need?`}
-          value={meals}
-          min={MIN_MEALS}
-          max={maxMeals(settings)}
-          onChange={setMeals}
-          hint={`One ${mealWord(settings, 1)} feeds everyone eating — ${settings.eaters} portion${
-            settings.eaters === 1 ? "" : "s"
-          } of food each time.`}
-        />
-
-        <div className="flex flex-wrap gap-2">
-          {presets.map((n) => (
-            <Chip key={n} pressed={meals === n} onClick={() => setMeals(n)}>
-              {n} {mealWord(settings, n)}
-            </Chip>
-          ))}
-        </div>
-
         <fieldset className="border-0 p-0">
           <legend className="mb-2 text-sm font-medium text-ink">Which meals to plan</legend>
           <div className="space-y-1">
@@ -113,6 +100,47 @@ export function PlanSetup({
           </div>
         </fieldset>
 
+        <div>
+          <Stepper
+            label={`How many ${mealWord(settings, 2)} do you need?`}
+            value={meals}
+            min={slotsPerDay(settings)}
+            max={maxMeals(settings)}
+            step={mealStep(settings)}
+            onChange={setMeals}
+            hint={`One ${mealWord(settings, 1)} feeds everyone eating — ${settings.eaters} portion${
+              settings.eaters === 1 ? "" : "s"
+            } of food each time.`}
+          />
+
+          {/* Shortcuts, not a second copy of the question. Without the line
+              above them, asking for a number they do not contain left four
+              unpressed buttons sitting there like something you had skipped. */}
+          <p id={presetsLabelId} className="mb-2 mt-4 text-sm text-ink-muted">
+            Or start from a common size
+          </p>
+          {/* Even columns on a phone: with the span spelled out, four
+              free-flowing chips broke into three ragged rows. Columns are
+              fitted rather than fixed at two, so at 200% zoom they fall to
+              one instead of squeezing the text out of the pill. */}
+          <div
+            role="group"
+            aria-labelledby={presetsLabelId}
+            className="grid grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))] gap-2 sm:flex sm:flex-wrap"
+          >
+            {presets.map((p) => (
+              <Chip
+                key={p.meals}
+                pressed={meals === p.meals}
+                onClick={() => setMeals(p.meals)}
+                note={daysLabel(p.days)}
+              >
+                {p.meals} {mealWord(settings, p.meals)}
+              </Chip>
+            ))}
+          </div>
+        </div>
+
         <Stepper
           label="Babies eating"
           value={settings.eaters}
@@ -122,9 +150,11 @@ export function PlanSetup({
           hint="One portion each, every meal."
         />
 
-        {/* The summary is the point of the card: it says what you just asked for. */}
-        <div className="rounded-lg bg-sage-tint px-4 py-3">
-          <p className="text-sm font-medium text-ink">
+        {/* The summary is the point of the card: it says what you just asked
+            for. It announces itself, so changing the number reads back its
+            consequence to a screen reader instead of only redrawing. */}
+        <div role="status" aria-live="polite" className="rounded-lg bg-sage-tint px-4 py-3">
+          <p className="text-sm font-medium tabular-nums text-ink">
             {mealsPlanned(settings)} {word} · {portionsPlanned(settings)} baby portions ·{" "}
             {daysLabel(days)} of food
           </p>

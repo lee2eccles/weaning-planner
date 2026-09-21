@@ -217,25 +217,39 @@ export function RecipeMeta({ recipe }: { recipe: Recipe }) {
  * these change what is listed immediately rather than submitting anything.
  */
 export function Chip({
-  children, pressed, onClick, count,
+  children, pressed, onClick, count, note,
 }: {
   children: React.ReactNode;
   pressed: boolean;
   onClick: () => void;
   count?: number;
+  /** A quieter second fact about the same option, read as part of the label. */
+  note?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={pressed}
-      className={`inline-flex min-h-[2.75rem] items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors duration-150 ${
+      className={`inline-flex min-h-[2.75rem] items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors duration-150 ${
         pressed
           ? "border-blush-deep bg-blush text-ink"
           : "border-sage bg-white text-ink-muted hover:bg-sage-tint"
       }`}
     >
-      {children}
+      {/* The note sits under the label rather than beside it: side by side,
+          a 320px phone wrapped each half independently and the pill came
+          apart. Stacked, it survives every width and 200% zoom. */}
+      {note ? (
+        <span className="flex flex-col items-center leading-tight">
+          <span className="tabular-nums">{children}</span>
+          <span className={`text-xs font-normal ${pressed ? "text-ink" : "text-ink-muted"}`}>
+            {note}
+          </span>
+        </span>
+      ) : (
+        children
+      )}
       {count != null && (
         <span className={`tabular-nums text-xs ${pressed ? "text-ink" : "text-ink-muted"}`}>
           {count}
@@ -299,15 +313,32 @@ export function Stepper({
   const clamp = (n: number) => Math.min(max, Math.max(min, n));
   const id = useId();
 
+  /**
+   * Stepping lands on the next multiple of `step` in the direction pressed,
+   * rather than adding to whatever is in the box. With a step of one that is
+   * plain +1; with a step of two — a day of breakfast and lunch — it means
+   * the buttons can only ever produce a size the planner can actually cook,
+   * even when the number was typed in by hand.
+   */
+  const nudge = (dir: 1 | -1) => {
+    const next =
+      dir === 1
+        ? (Math.floor(value / step) + 1) * step
+        : (Math.ceil(value / step) - 1) * step;
+    onChange(clamp(next));
+  };
+
   return (
     <div>
       <label htmlFor={id} className="block text-sm font-medium text-ink">
         {label}
       </label>
-      <div className="mt-1.5 flex items-center gap-2">
+      {/* Wraps rather than clips: at 200% zoom the three controls no longer
+          fit on one line, and the + button used to sit off the card. */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-2">
         <button
           type="button"
-          onClick={() => onChange(clamp(value - step))}
+          onClick={() => nudge(-1)}
           disabled={value <= min}
           aria-label={`Decrease ${label}`}
           className="inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center rounded-lg border border-sage bg-white text-ink hover:bg-sage-tint disabled:border-sage-tint disabled:text-ink-muted"
@@ -324,11 +355,13 @@ export function Stepper({
           step={step}
           autoComplete="off"
           onChange={(e) => onChange(clamp(Number(e.target.value)))}
-          className="min-h-[2.75rem] w-20 rounded-lg border border-sage bg-white px-3 py-2 text-center text-ink tabular-nums"
+          /* Narrow enough to give way when the row is squeezed, wide enough
+             to keep two digits readable when it does. */
+          className="min-h-[2.75rem] w-20 min-w-[3rem] rounded-lg border border-sage bg-white px-2 py-2 text-center text-ink tabular-nums"
         />
         <button
           type="button"
-          onClick={() => onChange(clamp(value + step))}
+          onClick={() => nudge(1)}
           disabled={value >= max}
           aria-label={`Increase ${label}`}
           className="inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center rounded-lg border border-sage bg-white text-ink hover:bg-sage-tint disabled:border-sage-tint disabled:text-ink-muted"
