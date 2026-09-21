@@ -11,7 +11,7 @@ Built from [PRD.md](PRD.md). Additional recipes in [RECIPES-ADDITIONAL.md](RECIP
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 144 tests
+npm test         # 172 tests
 npm run build
 ```
 
@@ -85,6 +85,7 @@ lib/
     recipes.core.ts    the core recipe library
     recipes.app.ts     additional recipes, written up in RECIPES-ADDITIONAL.md
     recipes.quick.ts   the fifteen-minutes-or-less library
+    recipes.first.ts   first savoury lunches, from six months
     search.ts          recipe search — titles, ingredients and plain-language tags
   planner/
     coverage.ts        meals into days, and portions of food out of meals
@@ -95,7 +96,7 @@ lib/
   shopping/merge.ts    quantity merging and pack conversion
   text/export.ts       plain text for a notes app — a recipe, or the saved list
   storage/local.ts     localStorage, the only module that touches persistence
-tests/                 144 tests, weighted to the planner, the legume rule and past bugs
+tests/                 172 tests, weighted to the planner, the legume rule and past bugs
 ```
 
 ## Offline
@@ -119,15 +120,14 @@ are not part of any one plan. Deleting them is a separate, explicit button.
 
 ## Recipes
 
-Every recipe here is our own. The project began from photographs of a weaning cookbook we own,
-which we used to work out what a sensible 7–9 month library looks like — meal shapes, portion
-conventions, fridge and freezer times. The recipes were then written from scratch, so nothing
-in this repository reproduces anyone else's text, and a test asserts that no recipe carries a
-page reference or cites a source.
+Every recipe here is our own — written from scratch, so nothing in this repository
+reproduces anyone else's text, and a test asserts that no recipe carries a page reference or
+cites a source.
 
-All recipes follow NHS weaning guidance for 7–9 months: no added salt or sugar, no honey
-before twelve months, no whole nuts, cow's milk in cooking only, and textures and shapes
-appropriate for a baby learning to feed themselves.
+All recipes follow NHS weaning guidance: no added salt or sugar, no honey before twelve
+months, no whole nuts, cow's milk in cooking only, and textures and shapes appropriate for a
+baby learning to feed themselves. The library starts at six months with first purées and soft
+finger food, and opens up at seven.
 
 **Iron is tracked deliberately.** NHS guidance names beans and lentils among the main iron
 foods at this age, and they are excluded here — so meat, fish, eggs and dark greens have to

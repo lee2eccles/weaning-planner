@@ -102,40 +102,40 @@ Requirements:
 
 ### 5.1 Where the recipes came from
 
-The project started from photographs of a weaning cookbook we own, which we used to work out
-what a sensible 7–9 month library looks like: the meal shapes, the portion conventions, the
-freezer and fridge keeping times, and which dishes suit batch cooking.
-
-**Every recipe in the app is now our own.** The library was rewritten so that nothing in this
-repository reproduces anyone else's text. Ingredient lists are not copyrightable — they are
-statements of fact — but method prose, headnotes and tips are, and reproducing them would
-have meant this repository could only ever be private. Rewriting them removed that constraint
-entirely rather than managing it.
-
-Concretely: all titles, method text, blurbs and notes are original; there are no page
-references or citations back to any book; the five legume-based dishes that could never be
-planned were dropped rather than documented; and a test asserts that no recipe carries a
-`page` or `basedOn` field, so the constraint cannot quietly erode.
+**Every recipe in the app is our own.** All titles, method text, blurbs and notes are
+original: nothing in this repository reproduces anyone else's text, there are no page
+references or citations, and a test asserts that no recipe carries a `page` or `basedOn`
+field, so the constraint cannot quietly erode.
 
 Dish *concepts* — cod with potato and sweetcorn, cheese and tomato orzo, broccoli pesto —
-are common weaning combinations and not anyone's property.
+are common weaning combinations and not anyone's property. Portion conventions, fridge and
+freezer keeping times and the textures for each age band follow NHS weaning guidance, which
+§5.6 and §4.2 set out in full.
 
 ### 5.2 The library
 
-| Slot | Core | Extra | **Total** |
-|---|---|---|---|
-| Breakfast | 7 | 6 | **13** |
-| Lunch | 13 | 9 | **22** |
+| Slot | Core | Extra | Quick | First | **Total** |
+|---|---|---|---|---|---|
+| Breakfast | 8 | 6 | 4 | 0 | **18** |
+| Lunch | 12 | 10 | 8 | 6 | **36** |
 
-Some recipes serve both slots, so the totals overlap. Over four weeks that is roughly 2.2
-servings of each breakfast and 1.3 of each lunch — inside the twice-weekly variety rule with
-enough slack that the planner optimises for ingredient overlap rather than being forced into
-repeats.
+50 recipes in all; some serve both slots, so the totals overlap. Over four weeks that is
+comfortably inside the twice-weekly variety rule, with enough slack that the planner
+optimises for ingredient overlap rather than being forced into repeats.
 
 `CORE_RECIPES` (`lib/data/recipes.core.ts`) is the base library. `EXTRA_RECIPES`
 (`lib/data/recipes.app.ts`, written up in [RECIPES-ADDITIONAL.md](RECIPES-ADDITIONAL.md))
 widens it deliberately using the ingredient base the core recipes already establish, so
-variety rises faster than the shopping list does.
+variety rises faster than the shopping list does. `QUICK_RECIPES`
+(`lib/data/recipes.quick.ts`) are the fifteen-minute meals that can be made fresh on the
+morning rather than batched.
+
+`FIRST_LUNCHES` (`lib/data/recipes.first.ts`) are the savoury meals for six months, and they
+exist because the age band did not work without them: every other lunch in the library starts
+at seven, so choosing 6+ months produced a plan with no meals in it. They are smooth or
+soft-mashed, carry their iron in meat and fish because the usual first-food sources are
+excluded here, and each states its texture as a range — the band is a floor, not a ceiling,
+and the same food wants to be lumpier at nine months than at six.
 
 ### 5.3 Iron
 

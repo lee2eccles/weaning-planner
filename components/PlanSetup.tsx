@@ -89,9 +89,14 @@ export function PlanSetup({
                     <span className="font-medium text-ink">{SLOT_LABEL[slot]}</span>
                     {/* The full stop is what separates the two in a screen
                         reader, which hears one run-on string otherwise. */}
+                    {/* The constraint is added to the description rather than
+                        swapped for it: this is the first thing on the card, and
+                        explaining why the box is greyed out is no reason to
+                        stop saying what the meal is. */}
                     <span className="block text-sm text-ink-muted">
                       {". "}
-                      {last ? "At least one meal has to stay selected." : SLOT_BLURB[slot]}
+                      {SLOT_BLURB[slot]}
+                      {last && " Kept selected because a plan needs at least one meal."}
                     </span>
                   </span>
                 </label>

@@ -58,7 +58,11 @@ export function BottomNav() {
       className="no-print fixed inset-x-0 bottom-0 z-20 border-t border-sage-tint bg-white md:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
     >
-      <ul className="flex">
+      {/* Six destinations stop fitting somewhere under 320px — a small phone
+          at 200% zoom. Scrolling the bar is better than clipping the last two
+          tabs off the screen with no way to reach them. Where they fit, which
+          is every real phone width, nothing about this changes. */}
+      <ul className="flex overflow-x-auto overscroll-x-contain">
         {LINKS.map((l) => {
           const active = pathname === l.href;
           return (
