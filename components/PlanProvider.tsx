@@ -283,7 +283,9 @@ export function PlanProvider({ children }: { children: ReactNode }) {
 
   const done = useMemo(() => new Set([...eaten, ...skipped]), [eaten, skipped]);
   const todayIndex = plan ? currentDayIndex(plan, done) : null;
-  const planFinished = !!plan && todayIndex === null;
+  // A plan with no meals in it has no day left to eat either, which read as
+  // "every meal is ticked off" on a plan that never had one.
+  const planFinished = !!plan && plan.meals.length > 0 && todayIndex === null;
 
   // A plan built for lunches only is not the plan you get after ticking
   // breakfast, and saying nothing is how people conclude the app is broken.

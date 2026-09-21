@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
-  MAX_DAYS, clampMeals, coverageSummary, daysLabel, maxMeals, mealPresets, mealStep, mealWord,
+  MAX_DAYS, clampMeals, daysLabel, maxMeals, mealPresets, mealStep, mealWord, plannedSummary,
   mealsOvershoot, mealsPlanned, planDays, portionsPlanned, slotsPerDay,
 } from "@/lib/planner/coverage";
 import { generatePlan, DEFAULT_SETTINGS } from "@/lib/planner/generate";
@@ -66,9 +66,17 @@ describe("asking for a number of meals", () => {
     expect(mealWord({ slots: ["breakfast", "lunch"] }, 3)).toBe("meals");
   });
 
-  it("summarises in the words that were asked", () => {
-    expect(coverageSummary({ ...twins, meals: 4 })).toBe("4 lunches · 8 baby portions");
-    expect(coverageSummary({ ...twins, meals: 1, eaters: 1 })).toBe("1 lunch · 1 baby portion");
+  it("summarises the meals a plan actually holds", () => {
+    const four = { meals: Array.from({ length: 4 }, () => ({})), settings: { ...twins, meals: 4 } };
+    expect(plannedSummary(four as never)).toBe("4 lunches · 8 baby portions");
+    const one = { meals: [{}], settings: { ...twins, meals: 1, eaters: 1 } };
+    expect(plannedSummary(one as never)).toBe("1 lunch · 1 baby portion");
+  });
+
+  it("counts the gap rather than the promise when a plan is short", () => {
+    // Asked for 14, the planner filled 3: the heading says 3.
+    const short = { meals: Array.from({ length: 3 }, () => ({})), settings: { ...twins, meals: 14 } };
+    expect(plannedSummary(short as never)).toBe("3 lunches · 6 baby portions");
   });
 
   it("still describes long plans in weeks", () => {

@@ -1,4 +1,4 @@
-import type { MealSlot, PlanSettings } from "@/lib/types";
+import type { MealSlot, Plan, PlanSettings } from "@/lib/types";
 
 /**
  * How much food a plan has to cover, counted in meals.
@@ -110,9 +110,18 @@ export function daysLabel(days: number): string {
   return `${weeksPart} and ${d} day${d === 1 ? "" : "s"}`;
 }
 
-/** "4 lunches · 8 baby portions" — the phrase under every heading. */
-export function coverageSummary(settings: Sized): string {
-  const meals = mealsPlanned(settings);
-  const portions = portionsPlanned(settings);
-  return `${meals} ${mealWord(settings, meals)} · ${portions} baby portion${portions === 1 ? "" : "s"}`;
+/**
+ * "4 lunches · 8 baby portions" — the phrase under every heading.
+ *
+ * Counted from the meals the plan actually holds, not from the number that was
+ * asked for. Where the planner could not fill a day — no lunch exists at 6+
+ * months, say — the two diverge, and the heading on a plan of empty days used
+ * to promise a fortnight of food that was never cooked.
+ */
+export function plannedSummary(plan: Pick<Plan, "meals" | "settings">): string {
+  const meals = plan.meals.length;
+  const portions = meals * Math.max(MIN_EATERS, plan.settings.eaters);
+  return `${meals} ${mealWord(plan.settings, meals)} · ${portions} baby portion${
+    portions === 1 ? "" : "s"
+  }`;
 }

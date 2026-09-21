@@ -249,8 +249,63 @@ function packWaves(cook: CookItem[], settings: PlanSettings): FreezeWave[] {
   return waves;
 }
 
-function collectWarnings(plan: Plan): string[] {
-  const warnings: string[] = [];
+const SLOT_ONE: Record<MealSlot, string> = { breakfast: "breakfast", lunch: "lunch" };
+const SLOT_MANY: Record<MealSlot, string> = { breakfast: "breakfasts", lunch: "lunches" };
+
+/**
+ * Days the planner could not fill, and why.
+ *
+ * A plan with gaps used to be silent: every heading still counted the meals
+ * you asked for, the shopping list was built for the meals that existed, and
+ * the only sign was a dashed box on each day. At 6+ months, where the library
+ * has no lunch at all, that meant a plan of fourteen empty days announcing
+ * "14 lunches · 28 baby portions".
+ */
+function unfilledWarnings(plan: Plan, blocked?: Set<string>): string[] {
+  const out: string[] = [];
+  const totalDays = planDays(plan.settings);
+  const { ageBandMonths } = plan.settings;
+
+  for (const slot of plan.settings.slots) {
+    let missing = 0;
+    for (let day = 0; day < totalDays; day++) {
+      if (!plan.meals.some((m) => m.dayIndex === day && m.slot === slot)) missing++;
+    }
+    if (missing === 0) continue;
+
+    const word = missing === 1 ? SLOT_ONE[slot] : SLOT_MANY[slot];
+    const head = `${missing} ${word} could not be filled`;
+    const suitable = PLANNABLE_RECIPES.filter(
+      (r) => r.slots.includes(slot) && r.ageBandMonths <= ageBandMonths && r.legumeStatus !== "contains"
+    );
+    const left = suitable.filter((r) => !blocked?.has(r.id));
+
+    if (suitable.length === 0) {
+      out.push(
+        `${head}: no ${SLOT_ONE[slot]} in the library is suitable at ${ageBandMonths}+ months. ` +
+          `Raise the age band in Settings and rebuild, or plan the other meal instead.`
+      );
+    } else if (left.length === 0) {
+      out.push(
+        `${head}: every ${SLOT_ONE[slot]} suitable at ${ageBandMonths}+ months is on your ` +
+          `"not again" list. Allow one back in from the Recipes tab and rebuild.`
+      );
+    } else {
+      out.push(
+        `${head} from the ${left.length} suitable recipe${left.length === 1 ? "" : "s"} left: ` +
+          `nothing is served two days running, or more than twice in a week. ` +
+          `Ask for fewer ${SLOT_MANY[slot]}, or rule fewer recipes out.`
+      );
+    }
+  }
+
+  return out;
+}
+
+function collectWarnings(plan: Plan, blocked?: Set<string>): string[] {
+  // Gaps first: a plan missing meals is a bigger fact than how many freezing
+  // waves the rest of it needs.
+  const warnings: string[] = unfilledWarnings(plan, blocked);
   const { freezer } = plan.settings;
 
   for (const session of plan.prepSessions) {
@@ -384,7 +439,7 @@ export function generatePlan(options: GenerateOptions = {}): Plan {
     warnings: [],
   };
 
-  plan.warnings = collectWarnings(plan);
+  plan.warnings = collectWarnings(plan, blocked);
   return plan;
 }
 

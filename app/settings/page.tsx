@@ -24,9 +24,22 @@ export default function SettingsPage() {
   if (!ready) return <p className="text-ink-muted">Loading…</p>;
 
   const f = settings.freezer;
-  const availableRecipes = PLANNABLE_RECIPES.filter(
-    (r) => r.ageBandMonths <= settings.ageBandMonths
-  ).length;
+  const suitable = PLANNABLE_RECIPES.filter((r) => r.ageBandMonths <= settings.ageBandMonths);
+  const availableRecipes = suitable.length;
+  /**
+   * Suitable recipes per meal, because the total hides the thing that breaks a
+   * plan: at 6+ months the library has four recipes and every one is a
+   * breakfast, so a lunch plan at that band comes out empty with no warning
+   * until it has already been built.
+   */
+  const bySlot = (["breakfast", "lunch"] as const).map((slot) => ({
+    slot,
+    count: suitable.filter((r) => r.slots.includes(slot)).length,
+    planned: settings.slots.includes(slot),
+  }));
+  const emptyPlanned = bySlot.filter((s) => s.planned && s.count === 0);
+  const slotWord = (slot: "breakfast" | "lunch", n: number) =>
+    n === 1 ? slot : slot === "lunch" ? "lunches" : "breakfasts";
 
   function setFreezer(patch: Partial<typeof f>) {
     updateSettings({ freezer: { ...f, ...patch } });
@@ -109,9 +122,20 @@ export default function SettingsPage() {
         />
         <p className="mt-2 text-sm text-ink-muted">
           {availableRecipes} of {PLANNABLE_RECIPES.length} recipes are suitable at{" "}
-          {settings.ageBandMonths}+ months. Every recipe carries a minimum age, so a lower band
-          narrows the pool rather than widening it.
+          {settings.ageBandMonths}+ months —{" "}
+          {bySlot
+            .map((s) => `${s.count === 0 ? "no" : s.count} ${slotWord(s.slot, s.count)}`)
+            .join(" and ")}
+          . Every recipe carries a minimum age, so a lower band narrows the pool rather than
+          widening it.
         </p>
+        {emptyPlanned.length > 0 && (
+          <p className="mt-2 text-sm text-alert">
+            Your plan asks for{" "}
+            {emptyPlanned.map((s) => slotWord(s.slot, 2)).join(" and ")}, and the library has none
+            at this age band. Rebuilding now would produce a plan of empty days.
+          </p>
+        )}
       </Card>
 
       {plan && (

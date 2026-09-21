@@ -3,7 +3,7 @@ import { AISLE_LABELS, ALLERGEN_LABELS } from "@/lib/types";
 import { getRecipe } from "@/lib/data/recipes";
 import { INGREDIENTS, PANTRY_STAPLES, displayName, meta } from "@/lib/data/ingredients";
 import { chooseBatchMultiplier } from "@/lib/planner/portions";
-import { coverageSummary, planDays } from "@/lib/planner/coverage";
+import { plannedSummary, planDays } from "@/lib/planner/coverage";
 import { isBatchCooked } from "@/lib/planner/constraints";
 
 export interface ShoppingLine {
@@ -338,7 +338,7 @@ export function planToText(
   plan: Plan,
   progress: { done?: Set<string>; currentDay?: number | null } = {}
 ): string {
-  const out: string[] = [`Meal plan — ${coverageSummary(plan.settings)}`, ""];
+  const out: string[] = [`Meal plan — ${plannedSummary(plan)}`, ""];
   const totalDays = planDays(plan.settings);
   const prepDays = new Set(plan.prepSessions.map((p) => p.dayIndex));
 

@@ -9,7 +9,7 @@ import { LegumeBanner, WarningList, NewAllergenNote, StaleBar } from "@/componen
 import { Button, SectionHeading, ShareButton } from "@/components/ui";
 import { ArrowRight } from "@/components/icons";
 import { planToText } from "@/lib/shopping/merge";
-import { coverageSummary, planDays } from "@/lib/planner/coverage";
+import { plannedSummary, planDays } from "@/lib/planner/coverage";
 
 
 export default function PlanPage() {
@@ -63,7 +63,7 @@ export default function PlanPage() {
     <div>
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <SectionHeading
-          sub={`${coverageSummary(plan.settings)} · ${
+          sub={`${plannedSummary(plan)} · ${
             plan.prepSessions.length > 1
               ? `prep days ${plan.prepSessions.map((s) => s.dayIndex + 1).join(" and ")}`
               : "day 1 is your prep day"

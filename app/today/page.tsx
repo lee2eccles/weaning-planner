@@ -125,7 +125,8 @@ export default function TodayPage() {
         <Card tone="sage" className="mb-5">
           <h2 className="mb-1 font-semibold text-ink">This is a prep day</h2>
           <p className="text-sm text-ink">
-            {prepSession.cook.length} recipes to batch-cook, covering days{" "}
+            {prepSession.cook.length} recipe{prepSession.cook.length === 1 ? "" : "s"} to
+            batch-cook, covering days{" "}
             {prepSession.coversDayIndices[0] + 1}–
             {prepSession.coversDayIndices[prepSession.coversDayIndices.length - 1] + 1}.
           </p>

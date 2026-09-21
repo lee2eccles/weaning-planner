@@ -1,7 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { generatePlan, currentDayIndex } from "@/lib/planner/generate";
-import { getRecipe } from "@/lib/data/recipes";
+import { generatePlan, currentDayIndex, DEFAULT_SETTINGS } from "@/lib/planner/generate";
+import { getRecipe, PLANNABLE_RECIPES } from "@/lib/data/recipes";
 import { mealStateFor } from "@/lib/planner/constraints";
+import { plannedSummary } from "@/lib/planner/coverage";
+import { buildShoppingLists, planToText } from "@/lib/shopping/merge";
+import type { MealSlot } from "@/lib/types";
 
 describe("swapping a meal must not lock the whole plan", () => {
   it("preserves each meal's own lock flag when meals are kept", () => {
@@ -96,5 +99,65 @@ describe("where you are in the plan", () => {
   it("carries no calendar date at all", () => {
     const plan = generatePlan({ settings: { meals: 14 }, restarts: 5, seed: 1 });
     expect(plan).not.toHaveProperty("startDate");
+  });
+});
+
+describe("a plan the library cannot fill", () => {
+  /**
+   * At 6+ months every recipe in the library is a breakfast, so a lunch plan
+   * at that band comes out empty. It used to do so silently: the heading
+   * counted the meals asked for, the finished banner claimed every one was
+   * ticked off, and the shopping tab crashed on the list that was never built.
+   */
+  const at6 = { ...DEFAULT_SETTINGS, ageBandMonths: 6, meals: 14, slots: ["lunch"] as MealSlot[] };
+
+  it("says how many meals it could not fill, and why", () => {
+    const plan = generatePlan({ settings: at6, restarts: 4, seed: 1 });
+    expect(plan.meals).toHaveLength(0);
+    expect(plan.warnings.join(" ")).toMatch(/14 lunches could not be filled/);
+    expect(plan.warnings.join(" ")).toMatch(/6\+ months/);
+  });
+
+  it("names the ruled-out list when that is what emptied the pool", () => {
+    const blocked = PLANNABLE_RECIPES.filter((r) => r.slots.includes("lunch")).map((r) => r.id);
+    const plan = generatePlan({ settings: DEFAULT_SETTINGS, blocked, restarts: 4, seed: 2 });
+    expect(plan.warnings.join(" ")).toMatch(/"not again" list/);
+  });
+
+  it("counts the meals it holds, not the meals it was asked for", () => {
+    const plan = generatePlan({ settings: at6, restarts: 4, seed: 3 });
+    expect(plannedSummary(plan)).toBe("0 lunches · 0 baby portions");
+    expect(planToText(plan)).toContain("0 lunches");
+  });
+
+  it("builds no shopping list to crash on", () => {
+    const plan = generatePlan({ settings: at6, restarts: 4, seed: 4 });
+    expect(buildShoppingLists(plan)).toHaveLength(0);
+  });
+
+  it("is not a finished plan — there was never a meal in it", () => {
+    const plan = generatePlan({ settings: at6, restarts: 4, seed: 5 });
+    // currentDayIndex has no day left to serve, which the UI must not read as
+    // "every meal is ticked off".
+    expect(currentDayIndex(plan, new Set())).toBeNull();
+    expect(plan.meals.length > 0 && currentDayIndex(plan, new Set()) === null).toBe(false);
+  });
+
+  it("still warns when only some days go unfilled", () => {
+    // Four breakfasts exist at 6+ months, and each may be served twice a week —
+    // enough for a full week. Rule two of them out and the week no longer fills.
+    const settings = { ...DEFAULT_SETTINGS, ageBandMonths: 6, meals: 7, slots: ["breakfast"] as MealSlot[] };
+    const suitable = PLANNABLE_RECIPES.filter(
+      (r) => r.ageBandMonths <= 6 && r.slots.includes("breakfast")
+    );
+    const blocked = suitable.slice(0, 2).map((r) => r.id);
+    const plan = generatePlan({ settings, blocked, restarts: 4, seed: 6 });
+    expect(plan.meals.length).toBeGreaterThan(0);
+    expect(plan.meals.length).toBeLessThan(7);
+    const warning = plan.warnings.join(" ");
+    expect(warning).toMatch(/breakfasts could not be filled/);
+    // The third branch: recipes exist and are allowed, but the no-repeat rules
+    // run out before the days do.
+    expect(warning).toMatch(/two days running/);
   });
 });

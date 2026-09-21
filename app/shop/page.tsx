@@ -30,6 +30,17 @@ export default function ShopPage() {
     );
   }
 
+  // A plan the planner could not fill has nothing to shop for, and reading
+  // `.lines` off the missing list took the whole page down with it.
+  if (lists.length === 0) {
+    return (
+      <EmptyState
+        title="Nothing to shop for"
+        body="This plan has no meals in it, so there is nothing to buy. The plan itself says which meals could not be filled and why — change it there and rebuild, and the list appears here."
+      />
+    );
+  }
+
   const list = lists[Math.min(listIndex, lists.length - 1)];
   const visible = list.lines.filter((l) => !hideStaples || !l.isPantryStaple);
   const hiddenCount = list.lines.length - visible.length;
