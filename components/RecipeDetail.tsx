@@ -6,7 +6,7 @@ import type { Recipe } from "@/lib/types";
 import { AllergenBadges, CopyButton, RecipeMeta, SaveButton, ShareButton } from "./ui";
 import { usePlan } from "./PlanProvider";
 import { recipeToText } from "@/lib/text/export";
-import { displayName } from "@/lib/data/ingredients";
+import { displayName, meta } from "@/lib/data/ingredients";
 import { batchLabel, scaleIngredients } from "@/lib/planner/portions";
 
 export function RecipeDetail({
@@ -168,6 +168,12 @@ export function RecipeDetail({
                   {displayName(i.item)}
                   {i.note ? <span className="text-ink-muted"> — {i.note}</span> : null}
                   {i.optional ? <span className="text-ink-muted"> (optional)</span> : null}
+                  {/* The one instruction that is not about flavour. */}
+                  {meta(i.item).chokingNote ? (
+                    <span className="mt-0.5 block text-xs text-alert">
+                      {meta(i.item).chokingNote}
+                    </span>
+                  ) : null}
                 </li>
               ))}
             </ul>

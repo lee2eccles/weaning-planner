@@ -176,7 +176,7 @@ export default function SettingsPage() {
           <li><strong className="text-ink">No added sugar.</strong></li>
           <li><strong className="text-ink">No whole nuts</strong> before 5 years. Ground nuts and smooth nut butters are fine, and several recipes use them.</li>
           <li><strong className="text-ink">Cow&rsquo;s milk</strong> is fine in cooking from 6 months, but not as a main drink before 12 months.</li>
-          <li><strong className="text-ink">Choking:</strong> quarter grapes and cherry tomatoes lengthways; cut food into finger-sized strips; nothing round and firm.</li>
+          <li><strong className="text-ink">Choking:</strong> quarter grapes and cherry tomatoes lengthways — halved is not enough; crush or chop sweetcorn kernels; cook carrot until it crushes easily, never raw; nuts ground or as smooth butter, never whole, until five. Cut food into finger-sized strips and keep them sitting upright. Each recipe repeats this against the ingredient it applies to.</li>
           <li><strong className="text-ink">Eggs</strong> must be cooked through unless British Lion stamped.</li>
         </ul>
         <p className="mt-3 text-xs text-ink-muted">

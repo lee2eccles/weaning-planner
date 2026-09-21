@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { CookItem } from "@/lib/types";
 import { getRecipe } from "@/lib/data/recipes";
-import { displayName } from "@/lib/data/ingredients";
+import { displayName, meta } from "@/lib/data/ingredients";
 import { batchLabel, scaleIngredients } from "@/lib/planner/portions";
 import { Badge } from "./ui";
 import { RecipeDetail } from "./RecipeDetail";
@@ -192,6 +192,12 @@ export function CookRow({
                     )}
                     {displayName(i.item)}
                     {i.note ? <span className="text-ink-muted"> — {i.note}</span> : null}
+                    {/* Said again at the hob, because this is where it is done. */}
+                    {meta(i.item).chokingNote ? (
+                      <span className="mt-0.5 block text-xs text-alert">
+                        {meta(i.item).chokingNote}
+                      </span>
+                    ) : null}
                     {i.optional ? <span className="text-ink-muted"> (optional)</span> : null}
                     {swaps[i.item] ? <span className="font-medium"> — {swaps[i.item]}</span> : null}
                   </li>

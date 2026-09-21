@@ -11,7 +11,7 @@ Built from [PRD.md](PRD.md). Additional recipes in [RECIPES-ADDITIONAL.md](RECIP
 ```bash
 npm install
 npm run dev      # http://localhost:3000
-npm test         # 175 tests
+npm test         # 179 tests
 npm run build
 ```
 
@@ -96,7 +96,7 @@ lib/
   shopping/merge.ts    quantity merging and pack conversion
   text/export.ts       plain text for a notes app — a recipe, or the saved list
   storage/local.ts     localStorage, the only module that touches persistence
-tests/                 175 tests, weighted to the planner, the legume rule and past bugs
+tests/                 179 tests, weighted to the planner, the legume rule and past bugs
 ```
 
 ## Offline
@@ -126,7 +126,10 @@ cites a source.
 
 All recipes follow NHS weaning guidance: no added salt or sugar, no honey before twelve
 months, no whole nuts, cow's milk in cooking only, and textures and shapes appropriate for a
-baby learning to feed themselves. The library starts at six months with first purées and soft
+baby learning to feed themselves. Foods that need preparing before a baby can have
+them — sweetcorn kernels, cherry tomatoes, carrot, nuts — carry that instruction on the
+ingredient itself, so it appears on every recipe that uses them and on the prep sheet, and
+a test fails if a new one is added without it. The library starts at six months with first purées and soft
 finger food — leading on the non-sweet vegetables, which is what first tastes are for — and
 opens up at seven. Settings says in a line what changes at each age band, because moving on
 to mashed and lumpier food is the thing NHS guidance is most insistent about.

@@ -34,6 +34,15 @@ export interface IngredientMeta {
    * matching and merging are reliable; this is what a person should read.
    */
   display?: string;
+  /**
+   * What has to be done to this ingredient before a baby can have it safely.
+   *
+   * Held on the ingredient rather than written into each recipe, because a
+   * recipe is where it gets forgotten: six of the nine sweetcorn recipes said
+   * nothing about the kernels. Stated once here, it shows on every recipe and
+   * on the prep sheet, and a new recipe cannot be written without it.
+   */
+  chokingNote?: string;
 }
 
 const P = "produce" as const;
@@ -52,9 +61,9 @@ export const INGREDIENTS: Record<string, IngredientMeta> = {
   "apple": { aisle: P, plural: "apples", perishability: 0.6, packSize: 6, packUnit: "piece", packLabel: "pack of apples" },
   "banana": { aisle: P, plural: "bananas", perishability: 0.85, packSize: 5, packUnit: "piece", packLabel: "bunch of bananas" },
   "mango": { aisle: P, plural: "mangoes", perishability: 0.85, packSize: 1, packUnit: "piece" },
-  "strawberries": { aisle: P, perishability: 0.9, packSize: 300, packUnit: "g", packLabel: "punnet of strawberries" },
+  "strawberries": { aisle: P, perishability: 0.9, packSize: 300, packUnit: "g", packLabel: "punnet of strawberries", chokingNote: "quarter lengthways, or mash — a whole berry is the size of an airway" },
   "blackberries": { aisle: P, perishability: 0.9, packSize: 150, packUnit: "g", packLabel: "punnet of blackberries" },
-  "blueberries": { aisle: P, perishability: 0.9, packSize: 150, packUnit: "g", packLabel: "punnet of blueberries" },
+  "blueberries": { aisle: P, perishability: 0.9, packSize: 150, packUnit: "g", packLabel: "punnet of blueberries", chokingNote: "squash each one between your fingers, or halve them — round and firm is the shape that blocks" },
   "raspberries": { aisle: P, perishability: 0.9, packSize: 150, packUnit: "g", packLabel: "punnet of raspberries" },
   "cooked beetroot": { aisle: P, plural: "cooked beetroot", perishability: 0.4, packSize: 2, packUnit: "piece", packLabel: "pack of cooked beetroot", note: "vacuum-packed in water" },
   "butternut squash": { aisle: P, perishability: 0.3, packSize: 1000, packUnit: "g", packLabel: "butternut squash" },
@@ -66,9 +75,9 @@ export const INGREDIENTS: Record<string, IngredientMeta> = {
   "broccoli": { aisle: P, perishability: 0.7, packSize: 350, packUnit: "g", packLabel: "head of broccoli" },
   "tenderstem broccoli": { aisle: P, perishability: 0.8, packSize: 200, packUnit: "g", packLabel: "pack of tenderstem" },
   "courgette": { aisle: P, plural: "courgettes", perishability: 0.7, packSize: 2, packUnit: "piece", packLabel: "pack of courgettes" },
-  "carrot": { aisle: P, plural: "carrots", perishability: 0.4, packSize: 500, packUnit: "g", packLabel: "bag of carrots" },
+  "carrot": { aisle: P, plural: "carrots", perishability: 0.4, packSize: 500, packUnit: "g", packLabel: "bag of carrots", chokingNote: "cook until it crushes easily against the roof of your mouth — never raw, and never in coins" },
   "red pepper": { aisle: P, plural: "red peppers", perishability: 0.7, packSize: 3, packUnit: "piece", packLabel: "pack of peppers" },
-  "cherry tomatoes": { aisle: P, perishability: 0.75, packSize: 300, packUnit: "g", packLabel: "punnet of cherry tomatoes" },
+  "cherry tomatoes": { aisle: P, perishability: 0.75, packSize: 300, packUnit: "g", packLabel: "punnet of cherry tomatoes", chokingNote: "quarter lengthways. Halved is not enough — a half still seals an airway" },
   "cucumber": { aisle: P, plural: "cucumbers", perishability: 0.75, packSize: 1, packUnit: "piece" },
   "avocado": { aisle: P, plural: "avocados", perishability: 0.9, packSize: 2, packUnit: "piece", packLabel: "pack of avocados" },
   "chestnut mushrooms": { aisle: P, perishability: 0.8, packSize: 250, packUnit: "g", packLabel: "pack of chestnut mushrooms" },
@@ -81,7 +90,7 @@ export const INGREDIENTS: Record<string, IngredientMeta> = {
   "ginger": { aisle: P, perishability: 0.4, packSize: 1, packUnit: "piece", packLabel: "piece of ginger" },
   "lemon": { aisle: P, plural: "lemons", perishability: 0.5, packSize: 4, packUnit: "piece", packLabel: "pack of lemons" },
   "lime": { aisle: P, plural: "limes", perishability: 0.5, packSize: 4, packUnit: "piece", packLabel: "pack of limes" },
-  "sweetcorn": { aisle: T, perishability: 0.1, packSize: 325, packUnit: "g", packLabel: "tin of sweetcorn" },
+  "sweetcorn": { aisle: T, perishability: 0.1, packSize: 325, packUnit: "g", packLabel: "tin of sweetcorn", chokingNote: "crush, chop or blitz the kernels — a whole kernel is firm, round and exactly the wrong size, and the skin makes it slippery" },
 
   /* ---------- Fresh herbs ---------- */
   "basil": { aisle: P, perishability: 0.95, packSize: 1, packUnit: "piece", packLabel: "pot of basil" },
@@ -133,10 +142,10 @@ export const INGREDIENTS: Record<string, IngredientMeta> = {
   "baking powder": { aisle: G, perishability: 0, packSize: 170, packUnit: "g", packLabel: "tub of baking powder" },
   "desiccated coconut": { aisle: G, perishability: 0.05, packSize: 200, packUnit: "g", packLabel: "bag of desiccated coconut", allergens: ["treeNuts"], note: "coconut is not a UK-regulated tree nut, but flagged here for caution", gramsPerTbsp: 5 },
   "chia seeds": { aisle: G, perishability: 0.05, packSize: 200, packUnit: "g", packLabel: "bag of chia seeds", gramsPerTbsp: 12 },
-  "dried apricots": { aisle: G, perishability: 0.1, packSize: 250, packUnit: "g", packLabel: "bag of dried apricots", allergens: ["sulphites"], note: "buy sulphite-free" },
-  "cashews": { aisle: G, perishability: 0.1, packSize: 200, packUnit: "g", packLabel: "bag of cashews", allergens: ["treeNuts"] },
-  "blanched almonds": { aisle: G, perishability: 0.1, packSize: 200, packUnit: "g", packLabel: "bag of blanched almonds", allergens: ["treeNuts"] },
-  "almond butter": { aisle: G, perishability: 0.1, packSize: 250, packUnit: "g", packLabel: "jar of almond butter", allergens: ["treeNuts"], note: "must be smooth — no whole or chopped nuts before 5 years", gramsPerTbsp: 16 },
+  "dried apricots": { aisle: G, perishability: 0.1, packSize: 250, packUnit: "g", packLabel: "bag of dried apricots", allergens: ["sulphites"], note: "buy sulphite-free", chokingNote: "chop small and cook until soft — dried fruit is firm, sticky and hard to shift" },
+  "cashews": { aisle: G, perishability: 0.1, packSize: 200, packUnit: "g", packLabel: "bag of cashews", allergens: ["treeNuts"], chokingNote: "blitz to a paste or a fine powder. Whole and chopped nuts are unsafe until five years old" },
+  "blanched almonds": { aisle: G, perishability: 0.1, packSize: 200, packUnit: "g", packLabel: "bag of blanched almonds", allergens: ["treeNuts"], chokingNote: "blitz to a paste or a fine powder. Whole and chopped nuts are unsafe until five years old" },
+  "almond butter": { aisle: G, perishability: 0.1, packSize: 250, packUnit: "g", packLabel: "jar of almond butter", allergens: ["treeNuts"], note: "must be smooth — no whole or chopped nuts before 5 years", gramsPerTbsp: 16, chokingNote: "spread thin or thin it with milk or yoghurt. A spoonful of stiff nut butter can block an airway on its own" },
 
   /* ---------- Tinned ---------- */
   "chopped tomatoes": { aisle: T, perishability: 0.05, packSize: 400, packUnit: "g", packLabel: "tin of chopped tomatoes" },
