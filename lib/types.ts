@@ -128,6 +128,15 @@ export interface Recipe {
   glutenFree: boolean;
   usesLeftover?: string;
   blurb?: string;
+  /**
+   * A first food: smooth or soft-mashed, for a baby just starting on solids.
+   *
+   * Marked rather than age-gated. NHS guidance is to move on to mashed and
+   * lumpier food as soon as a baby can manage it, so these stay plannable at
+   * every age — but a parent at nine months should be able to see one coming
+   * and swap it for something with more texture.
+   */
+  firstFood?: boolean;
 }
 
 /* ---------- Planning ---------- */

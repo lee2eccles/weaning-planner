@@ -26,6 +26,13 @@ export const WEIGHTS = {
    * of nothing but the same six saved meals is not what saving them meant.
    */
   saved: 1.6,
+  /**
+   * First foods past six months. A nudge, not a bar: they stay plannable and
+   * stay in the swap picker, because a purée fork-mashed is a perfectly good
+   * meal at nine months and NHS guidance sets no cut-off. It only stops eight
+   * smooth recipes competing on equal terms for a one-year-old's fortnight.
+   */
+  firstFood: 2.0,
 };
 
 export interface ScoreContext {
@@ -208,7 +215,8 @@ function repeatCost(ctx: ScoreContext): number {
 
 export function scoreRecipe(recipe: Recipe, ctx: ScoreContext): number {
   return (
-    WEIGHTS.saved * (ctx.preferred?.has(recipe.id) ? 1 : 0) +
+    WEIGHTS.saved * (ctx.preferred?.has(recipe.id) ? 1 : 0) -
+    WEIGHTS.firstFood * (recipe.firstFood && ctx.settings.ageBandMonths > 6 ? 1 : 0) +
     WEIGHTS.overlap * ingredientOverlap(recipe, ctx) +
     WEIGHTS.pack * packEfficiency(recipe, ctx) +
     WEIGHTS.variety * varietyScore(recipe, ctx) +

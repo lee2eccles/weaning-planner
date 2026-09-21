@@ -117,9 +117,9 @@ freezer keeping times and the textures for each age band follow NHS weaning guid
 | Slot | Core | Extra | Quick | First | **Total** |
 |---|---|---|---|---|---|
 | Breakfast | 8 | 6 | 4 | 0 | **18** |
-| Lunch | 12 | 10 | 8 | 6 | **36** |
+| Lunch | 12 | 10 | 8 | 8 | **38** |
 
-50 recipes in all; some serve both slots, so the totals overlap. Over four weeks that is
+52 recipes in all; some serve both slots, so the totals overlap. Over four weeks that is
 comfortably inside the twice-weekly variety rule, with enough slack that the planner
 optimises for ingredient overlap rather than being forced into repeats.
 
@@ -136,6 +136,17 @@ at seven, so choosing 6+ months produced a plan with no meals in it. They are sm
 soft-mashed, carry their iron in meat and fish because the usual first-food sources are
 excluded here, and each states its texture as a range — the band is a floor, not a ceiling,
 and the same food wants to be lumpier at nine months than at six.
+
+They lead with the non-sweet vegetables NHS guidance names for first tastes — broccoli,
+cauliflower, spinach — rather than the sweet potato and carrot every weaning book opens
+with: a baby will take the sweet ones whenever they meet them, and the window for the
+bitter ones is now.
+
+Each carries `firstFood`, which shows on the meal card as "First food — smooth or mashed"
+so a parent can see one coming and swap it, and costs a small amount of score above the 6+
+band (`WEIGHTS.firstFood`). A nudge, not a bar: NHS guidance sets no cut-off for purées, and
+one fork-mashed is a good meal at a year. At six months they are the library; at nine they
+are roughly one meal in forty.
 
 ### 5.3 Iron
 

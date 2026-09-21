@@ -14,18 +14,80 @@ import { recipe } from "./build";
  * meat and fish carrying the iron, because the usual first-food answers —
  * lentils, split peas, hummus — are all legumes and excluded here.
  *
- * Each one gives its texture as a range rather than a single instruction. The
+ * Each one gives its texture as a range rather than a single instruction, and
+ * carries `firstFood` so it says what it is on the card where Swap sits. The
  * age band is a floor and not a ceiling: these stay in the pool at nine and
  * twelve months, where the same food wants to be lumpier and served in strips
- * rather than off a spoon.
+ * rather than off a spoon, and where a parent may well swap one out.
+ *
+ * The set leads with the non-sweet vegetables — broccoli, cauliflower, spinach
+ * — that NHS guidance names for first tastes. Sweet potato and carrot are the
+ * easy sell and every weaning book opens with them, which is the reason not
+ * to: a baby will take the sweet ones whenever they meet them, and the window
+ * for learning to like the bitter ones is now.
  */
 export const FIRST_LUNCHES: Recipe[] = [
   recipe({
-    id: "first-sweet-potato-carrot",
-    title: "Sweet Potato and Carrot First Purée",
+    id: "first-broccoli-cauliflower",
+    title: "Broccoli and Cauliflower First Purée",
     source: "extra",
-    blurb: "The one to start on. Naturally sweet, a colour babies go for, and it freezes into cubes that thaw in minutes.",
-    slots: ["lunch"], ageBandMonths: 6,
+    blurb: "The one to start on — and deliberately not a sweet one. A baby will take sweet food whenever they first meet it; this is the taste worth spending the early weeks on.",
+    slots: ["lunch"], ageBandMonths: 6, firstFood: true,
+    babyPortions: 4, feedsAdultToo: false,
+    freezable: "yes", freezeFormat: "cube", fridgeDays: 2,
+    activeMinutes: 15, longRecipe: false, noCook: false,
+    ingredients: [
+      ing("broccoli", 200, "g", "broken into small florets"),
+      ing("cauliflower", 200, "g", "broken into small florets"),
+      ing("unsalted butter", 1, "tsp"),
+      ing("water", 100, "ml", "or more, to loosen"),
+    ],
+    method: [
+      "Steam the broccoli and cauliflower together for 12 minutes, until both crush against the side of the pan with no resistance.",
+      "Blend with the butter and half the water, adding the rest a splash at a time.",
+      "For a baby on their first spoonfuls, take it completely smooth and loose enough to fall slowly off a spoon. Once they are managing that, fork-mash it instead and leave it rough.",
+      "Cool completely before it goes near the freezer.",
+    ],
+    tips: [
+      "Starting on the bitter vegetables rather than the sweet ones is the single easiest thing to do now and the hardest to go back and fix later.",
+      "A first portion is a teaspoon or two. Two cubes is already more than most babies take at the start.",
+    ],
+    legumeStatus: "safe", saltAware: false, ironRich: false, vegetarian: true, glutenFree: true,
+  }),
+
+  recipe({
+    id: "first-spinach-potato",
+    title: "Spinach and Potato First Purée",
+    source: "extra",
+    blurb: "Green, mild and a little earthy. Potato softens spinach without turning it into something sweet.",
+    slots: ["lunch"], ageBandMonths: 6, firstFood: true,
+    babyPortions: 4, feedsAdultToo: false,
+    freezable: "yes", freezeFormat: "cube", fridgeDays: 2,
+    activeMinutes: 15, longRecipe: false, noCook: false,
+    ingredients: [
+      ing("potato", 250, "g", "peeled and diced"),
+      ing("spinach", 100, "g"),
+      ing("whole milk", 3, "tbsp"),
+      ing("unsalted butter", 1, "tsp"),
+    ],
+    method: [
+      "Boil or steam the potato for 12 minutes, until it falls apart against a fork.",
+      "Add the spinach for the last minute, just long enough to wilt right down.",
+      "Blend or mash with the milk and butter, to whichever texture they are on.",
+    ],
+    tips: [
+      "Spinach carries iron, though not the kind that absorbs as readily as the iron in meat — which is why the meat dishes here matter more than they would in most weaning plans.",
+      "Made with milk, so it is one to cook rather than to serve straight from a first-foods pouch.",
+    ],
+    legumeStatus: "safe", saltAware: false, ironRich: true, vegetarian: true, glutenFree: true,
+  }),
+
+  recipe({
+    id: "first-sweet-potato-carrot",
+    title: "Sweet Potato and Carrot Purée",
+    source: "extra",
+    blurb: "The easy one, and worth holding back a week or two so the greens go first. Freezes into cubes that thaw in minutes.",
+    slots: ["lunch"], ageBandMonths: 6, firstFood: true,
     babyPortions: 4, feedsAdultToo: false,
     freezable: "yes", freezeFormat: "cube", fridgeDays: 2,
     activeMinutes: 15, longRecipe: false, noCook: false,
@@ -38,7 +100,7 @@ export const FIRST_LUNCHES: Recipe[] = [
     method: [
       "Steam the sweet potato and carrot together for 12–15 minutes, until a knife goes through with no resistance at all.",
       "Tip into a blender with the butter and half the water. Blend, adding the rest of the water a splash at a time.",
-      "For a baby on their first spoonfuls, take it completely smooth — no lumps, and loose enough to fall slowly off a spoon. Once they are used to texture, fork-mash it instead and leave it rough.",
+      "Smooth and loose for a baby just starting; fork-mashed and rough once they are used to texture.",
       "Cool completely before it goes near the freezer.",
     ],
     tips: [
@@ -53,7 +115,7 @@ export const FIRST_LUNCHES: Recipe[] = [
     title: "Chicken, Sweet Potato and Apple",
     source: "extra",
     blurb: "The first meat, made easy to accept — apple takes the edge off chicken for a baby who has only had vegetables.",
-    slots: ["lunch"], ageBandMonths: 6,
+    slots: ["lunch"], ageBandMonths: 6, firstFood: true,
     babyPortions: 4, feedsAdultToo: false,
     freezable: "yes", freezeFormat: "cube", fridgeDays: 2,
     activeMinutes: 25, longRecipe: false, noCook: false,
@@ -82,7 +144,7 @@ export const FIRST_LUNCHES: Recipe[] = [
     title: "Beef, Butternut and Cinnamon",
     source: "extra",
     blurb: "The most iron in the six-month library, and mild enough that it does not taste like a grown-up's dinner.",
-    slots: ["lunch"], ageBandMonths: 6,
+    slots: ["lunch"], ageBandMonths: 6, firstFood: true,
     babyPortions: 4, feedsAdultToo: false,
     freezable: "yes", freezeFormat: "cube", fridgeDays: 2,
     activeMinutes: 30, longRecipe: false, noCook: false,
@@ -112,7 +174,7 @@ export const FIRST_LUNCHES: Recipe[] = [
     title: "Salmon, Potato and Courgette Mash",
     source: "extra",
     blurb: "Oily fish early and often. Salmon flakes into potato without a single lump to chew.",
-    slots: ["lunch"], ageBandMonths: 6,
+    slots: ["lunch"], ageBandMonths: 6, firstFood: true,
     babyPortions: 3, feedsAdultToo: false,
     freezable: "yes", freezeFormat: "cube", fridgeDays: 1,
     activeMinutes: 20, longRecipe: false, noCook: false,
@@ -141,7 +203,7 @@ export const FIRST_LUNCHES: Recipe[] = [
     title: "Butternut and Cauliflower Cheese",
     source: "extra",
     blurb: "A first taste of cheese, kept to the small amount that suits a baby, in the vegetable that carries it best.",
-    slots: ["lunch"], ageBandMonths: 6,
+    slots: ["lunch"], ageBandMonths: 6, firstFood: true,
     babyPortions: 4, feedsAdultToo: false,
     freezable: "yes", freezeFormat: "cube", fridgeDays: 2,
     activeMinutes: 20, longRecipe: false, noCook: false,
@@ -168,7 +230,7 @@ export const FIRST_LUNCHES: Recipe[] = [
     title: "Soft Vegetable Sticks with Avocado",
     source: "extra",
     blurb: "The hands-on end of six months: something to hold, something to dip it in, and nothing to cook ahead.",
-    slots: ["lunch"], ageBandMonths: 6,
+    slots: ["lunch"], ageBandMonths: 6, firstFood: true,
     babyPortions: 2, feedsAdultToo: false,
     freezable: "no", freezeFormat: "none", fridgeDays: 1,
     activeMinutes: 12, longRecipe: false, noCook: false,

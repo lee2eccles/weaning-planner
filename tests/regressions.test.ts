@@ -183,6 +183,46 @@ describe("six months is a usable age band", () => {
     expect(plan.meals.filter((m) => m.slot === "lunch")).toHaveLength(7);
   });
 
+  it("leads with the non-sweet vegetables, which is what first tastes are for", () => {
+    // NHS guidance names broccoli, cauliflower and spinach for first foods:
+    // a baby will take the sweet ones whenever they meet them, and the window
+    // for learning to like the bitter ones is now.
+    // The title is what leads, not the ingredient order — a spinach purée
+    // still lists the potato first, because the potato goes in the pan first.
+    const first = PLANNABLE_RECIPES.filter((r) => r.firstFood);
+    const nonSweetLead = first.filter((r) =>
+      ["broccoli", "cauliflower", "spinach"].some((v) => r.title.toLowerCase().startsWith(v))
+    );
+    expect(nonSweetLead.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("says on the card that it is a first food, so it can be swapped out", () => {
+    const at6 = PLANNABLE_RECIPES.filter((r) => r.ageBandMonths <= 6 && r.slots.includes("lunch"));
+    for (const r of at6) expect(r.firstFood, r.title).toBe(true);
+  });
+
+  it("thins the first foods out past six months without barring them", () => {
+    const count = (ageBandMonths: number) => {
+      let ff = 0, total = 0;
+      for (let seed = 0; seed < 10; seed++) {
+        const plan = generatePlan({
+          settings: { ...DEFAULT_SETTINGS, meals: 28, ageBandMonths }, restarts: 20, seed,
+        });
+        for (const m of plan.meals) {
+          total++;
+          if (getRecipe(m.recipeId).firstFood) ff++;
+        }
+      }
+      return ff / total;
+    };
+    // At six months they are the library. At nine they are an occasional
+    // meal a parent can swap — not barred, because a purée fork-mashed is
+    // still a good meal and NHS guidance sets no cut-off.
+    expect(count(6)).toBeGreaterThan(0.9);
+    expect(count(9)).toBeLessThan(0.15);
+    expect(count(9)).toBeGreaterThan(0);
+  });
+
   it("carries iron, which is the hard part with pulses excluded", () => {
     const sixMonth = PLANNABLE_RECIPES.filter(
       (r) => r.ageBandMonths <= 6 && r.slots.includes("lunch")

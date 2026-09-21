@@ -18,6 +18,22 @@ import { PLANNABLE_RECIPES } from "@/lib/data/recipes";
  */
 const AGE_BANDS = [6, 7, 9, 10, 12];
 
+/**
+ * What changes at each band, in a line.
+ *
+ * The band used to only filter the recipe pool, which made it a setting about
+ * the app rather than about the baby. NHS guidance for these months is mostly
+ * about texture — move on to mashed and lumpier food as soon as they can
+ * manage it — and the app was silent on the one thing it most wants to say.
+ */
+const AGE_BAND_NOTE: Record<number, string> = {
+  6: "Smooth or soft-mashed, a teaspoon or two at a time, and soft things to hold. Move on to lumps as soon as they can manage them.",
+  7: "Mashed and lumpier food, and more to pick up. Learning to chew is the skill for these months, and it is easier to teach now than later.",
+  9: "Lumpy and chopped food, with finger foods at every meal. Working up to three meals a day.",
+  10: "Chopped food and a wide range of textures — they should be picking most of it up themselves by now.",
+  12: "The same meals as everyone else, chopped small, with no salt added to any of it.",
+};
+
 export default function SettingsPage() {
   const { settings, updateSettings, ready, regenerate, generating, plan } = usePlan();
   const [confirmClear, setConfirmClear] = useState<null | "plan" | "everything">(null);
@@ -129,6 +145,7 @@ export default function SettingsPage() {
           . Every recipe carries a minimum age, so a lower band narrows the pool rather than
           widening it.
         </p>
+        <p className="mt-2 text-sm text-ink">{AGE_BAND_NOTE[settings.ageBandMonths]}</p>
         {emptyPlanned.length > 0 && (
           <p className="mt-2 text-sm text-alert">
             Your plan asks for{" "}

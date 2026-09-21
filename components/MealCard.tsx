@@ -64,7 +64,10 @@ export function MealCard({
         />
       </div>
 
-      <div className="mt-2">
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        {/* Says itself on the card, because this is where Swap is. A first
+            food is right at six months and worth swapping out by nine. */}
+        {recipe.firstFood && <Badge tone="sage">First food — smooth or mashed</Badge>}
         <AllergenBadges allergens={recipe.allergens} seen={allergensSeen} showNew />
       </div>
 

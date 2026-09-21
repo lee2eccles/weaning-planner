@@ -192,6 +192,7 @@ export function SectionHeading({ children, sub }: { children: React.ReactNode; s
 /** One quiet meta line. Eight competing pills made recipe grids unbrowsable. */
 export function RecipeMeta({ recipe }: { recipe: Recipe }) {
   const parts: string[] = [];
+  if (recipe.firstFood) parts.push("First food — smooth or mashed");
   if (recipe.vegetarian) parts.push("Vegetarian");
   if (recipe.glutenFree) parts.push("Gluten free");
   if (recipe.freezable !== "no") {
